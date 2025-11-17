@@ -36,14 +36,14 @@ parameter K issue; In SIM we can assume fx = fy
 """
 
 def _try_open_yaml(path_str: str):
-    """絶対パス or CWD相対パスで見つかれば開いて dict を返す。なければ None。"""
+    """Open via absolute or CWD-relative path and return dict if found, else None."""
     import yaml
     p = Path(path_str)
-    # 絶対パス
+    # Absolute path
     if p.is_absolute() and p.exists():
         with p.open('r', encoding='utf-8') as f:
             return yaml.safe_load(f)
-    # CWD相対
+    # Relative to the current working directory
     cand = Path.cwd() / p
     if cand.exists():
         with cand.open('r', encoding='utf-8') as f:
@@ -53,11 +53,11 @@ def _try_open_yaml(path_str: str):
 
 def _load_cfg_from_package(pkg_modpath: str, filename: str):
     """
-    パッケージ内（例：mam_eurobot_2026.vision）の filename を開く。
-    成功時は dict、失敗時は FileNotFoundError。
+    Open filename bundled inside the package (e.g., mam_eurobot_2026.vision).
+    Returns dict on success, raises FileNotFoundError when missing.
     """
     import yaml
-    path = files(pkg_modpath).joinpath(filename)   # 例: mam_eurobot_2026/vision/vision_settings.yaml
+    path = files(pkg_modpath).joinpath(filename)   # Example: mam_eurobot_2026/vision/vision_settings.yaml
     if not path.is_file():
         raise FileNotFoundError(f"Config not bundled: {pkg_modpath}/{filename}")
     with path.open('r', encoding='utf-8') as f:
@@ -65,7 +65,7 @@ def _load_cfg_from_package(pkg_modpath: str, filename: str):
 
 
 def compute_intrinsics_from_fov(width: int, height: int, hfov_rad: float) -> Tuple[np.ndarray, np.ndarray]:
-    """HFOVと画像サイズからKを計算。歪みDは0（Sim前提）。"""
+    """Compute K from HFOV and image size. Distortion D is zero (simulation assumption)."""
     fx = (width / 2.0) / math.tan(hfov_rad / 2.0)
     # fy = fx * (height / width)
     fy = fx
@@ -91,7 +91,7 @@ def get_aruco_dict(name: str):
 
 
 def names_for_camera(cam_name: str) -> Tuple[str, str, str]:
-    """Pose出力/フレーム名/ログタグを整備。"""
+    """Prepare pose topic, frame name, and log tag."""
     pose_topic = f"/{cam_name}/pose_world"
     optical_frame = f"{cam_name}_optical_frame"
     log_tag = f"[{cam_name}]"
@@ -100,51 +100,51 @@ def names_for_camera(cam_name: str) -> Tuple[str, str, str]:
 
 class WorldToStaticTopcamera(Node):
     """
-    目的: ArUcoが写った画像から各カメラの world→camera を推定。
-    - 各カメラは YAML に定義
-    - 見えた時点でそのカメラの姿勢を確定し、/tf_static と Pose をpublish
-    - 全カメラ分完了したら終了（exit_on_complete=true時）
+    Goal: estimate each camera's world→camera transform from an image with ArUco markers.
+    - Cameras are defined in the YAML
+    - As soon as a camera sees its marker, fix its pose and publish to /tf_static and Pose
+    - Exit after all cameras are solved (when exit_on_complete=true)
     """
 
     def __init__(self):
         super().__init__("world_to_topcamera")
 
-        # ---- パラメータ ----
-        self.declare_parameter("exit_on_complete", True)       # 全部そろったら終了
-        self.declare_parameter("require_both_cameras", True)   # YAML列挙の全カメラが必須か
+        # ---- Parameters ----
+        self.declare_parameter("exit_on_complete", True)       # Exit once every camera is solved
+        self.declare_parameter("require_both_cameras", True)   # Require every camera listed in YAML
         self.declare_parameter("config_yaml", "vision_settings.yaml")
 
         from pathlib import Path
         cfg_name_or_path = self.get_parameter("config_yaml").get_parameter_value().string_value
 
-        cfg = _try_open_yaml(cfg_name_or_path)  # 絶対 or CWD相対が来たらそれを優先
+        cfg = _try_open_yaml(cfg_name_or_path)  # Prefer absolute or CWD-relative paths when provided
         if cfg is None:
             fname = Path(cfg_name_or_path).name if cfg_name_or_path else "vision_settings.yaml"
             cfg = _load_cfg_from_package("mam_eurobot_2026.vision", fname)
             self.get_logger().info(f"Loaded config from package data: mam_eurobot_2026/vision/{fname}")
         else:
             self.get_logger().info(f"Loaded config from path: {cfg_name_or_path}")
-        # === ここまで: 方法Bのロード ===
+        # === End of alternate load method ===
 
-        # （任意）最低限のスキーマ検証
+        # Optional minimal schema validation
         if "global" not in cfg:
             raise ValueError("Config 'global' is missing")
         if "cameras" not in cfg or not isinstance(cfg["cameras"], list) or not cfg["cameras"]:
             raise ValueError("Config 'cameras' is missing or empty")
 
-        # === ここから: 従来どおり内部パラメータを初期化 ===
+        # === From here: initialize internal parameters as before ===
         g = cfg.get("global", {})
         self.hfov_rad = math.radians(float(g.get("horizontal_fov_deg", 60.0)))
         self.img_w = int(g.get("image_width", 640))
         self.img_h = int(g.get("image_height", 480))
         self.aruco_dict = get_aruco_dict(str(g.get("aruco_dictionary", "DICT_4X4_50")))
-        self.det_params = cv2.aruco.DetectorParameters_create()        # 内部パラメータ（共通前提）
+        self.det_params = cv2.aruco.DetectorParameters_create()        # Shared detector parameters
         self.K, self.D = compute_intrinsics_from_fov(self.img_w, self.img_h, self.hfov_rad)
         self.get_logger().info(
             f"K from HFOV={math.degrees(self.hfov_rad):.1f}deg, size=({self.img_w}x{self.img_h}) "
             f"-> fx={self.K[0,0]:.2f}, fy={self.K[1,1]:.2f}, cx={self.K[0,2]:.1f}, cy={self.K[1,2]:.1f}"
         )
-        # カメラ列挙の取り出し（従来どおり）
+        # Enumerate cameras (same as before)
         cams = cfg.get("cameras", [])
         self.cams = {}
         for c in cams:
@@ -153,23 +153,23 @@ class WorldToStaticTopcamera(Node):
                 raise ValueError(f"Duplicate camera name: {name}")
             self.cams[name] = c
 
-        # 出力
+        # Outputs
         pose_qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
-            durability=DurabilityPolicy.TRANSIENT_LOCAL,  # ラッチ相当
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,  # Equivalent to latched publishers
         )
         self.pose_pubs: Dict[str, Any] = {}
         self.static_tfb = StaticTransformBroadcaster(self)
 
-        # 状態
+        # State
         self.bridge = CvBridge()
         self.done_flags: Dict[str, bool] = {name: False for name in self.cams.keys()}
         self.exit_on_complete = bool(self.get_parameter("exit_on_complete").value)
         self.require_all = bool(self.get_parameter("require_both_cameras").value)
 
-        # 購読開始
+        # Start subscriptions
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
@@ -184,10 +184,10 @@ class WorldToStaticTopcamera(Node):
                                      sensor_qos)
             self.get_logger().info(f"Subscribe: {topic} -> Pose pub: {pose_topic}")
 
-    # ----- 補助 -----
+    # ----- Helpers -----
     @staticmethod
     def build_RT_from_xyzrpy(px, py, pz, rr, rp, ry):
-        """world->marker の [R|t] を作る（固定軸RPY: X->Y->Z）。"""
+        """Create world->marker [R|t] (fixed-axis RPY: X->Y->Z)."""
         R = tft.euler_matrix(rr, rp, ry, axes="sxyz")[:3, :3]
         t = np.array([[px], [py], [pz]], dtype=np.float64)
         return R, t
@@ -197,32 +197,32 @@ class WorldToStaticTopcamera(Node):
             return
         if self.require_all:
             if all(self.done_flags.values()):
-                time.sleep(0.2)  # 吐き出し待ち
+                time.sleep(0.2)  # Wait for messages to flush
                 self.get_logger().info("All cameras solved. Exiting.")
                 rclpy.shutdown()
         else:
-            # どれか1台でもOKで終了、にしたい場合
+            # Exit as soon as at least one camera is solved
             if any(self.done_flags.values()):
                 time.sleep(0.2)
                 self.get_logger().info("At least one camera solved. Exiting.")
                 rclpy.shutdown()
         # FIXME: node does not shut down somehow
 
-    # ----- コールバック（各カメラごと） -----
+    # ----- Callback (per camera) -----
     def _image_callback(self, msg: Image, cam_name: str):
         if self.done_flags[cam_name]:
-            return  # すでに確定済み
+            return  # Already solved
 
         cam = self.cams[cam_name]
         marker_id = int(cam["marker_id"])
         marker_len = float(cam["marker_length_m"])
         px, py, pz, rr, rp, ry = cam["world_marker_xyzrpy"]
 
-        # 画像→グレー
+        # Convert image to grayscale
         img_bgr = self.bridge.imgmsg_to_cv2(msg, "bgr8")
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
 
-        # ArUco検出
+        # Detect ArUco markers
         corners, ids, _ = cv2.aruco.detectMarkers(gray, self.aruco_dict, parameters=self.det_params)
         if ids is None:
             return
@@ -240,16 +240,16 @@ class WorldToStaticTopcamera(Node):
         R_C_M, _ = cv2.Rodrigues(rvec)
         t_C_M = tvec
 
-        # 反転 T_M_C
+        # Invert to obtain T_M_C
         R_M_C = R_C_M.T
         t_M_C = -R_M_C @ t_C_M
 
-        # 合成 T_W_C = T_W_M * T_M_C
+        # Compose T_W_C = T_W_M * T_M_C
         R_W_M, t_W_M = self.build_RT_from_xyzrpy(px, py, pz, rr, rp, ry)
         R_W_C = R_W_M @ R_M_C
         t_W_C = R_W_M @ t_M_C + t_W_M
 
-        # 出力（Pose + /tf_static）
+        # Output Pose + /tf_static
         pose_topic, optical_frame, log_tag = names_for_camera(cam_name)
         self.get_logger().info(
             f"{log_tag} Camera position in world = "
@@ -262,7 +262,7 @@ class WorldToStaticTopcamera(Node):
             np.block([[R_W_C, np.zeros((3, 1))], [np.array([0, 0, 0, 1])]])
         )
 
-        # --- ★ここから追加ログ出力部分 ---
+        # --- Additional log output ---
         msg_text = (
             f"{log_tag} Camera position (world): "
             f"({t_W_C[0,0]:.3f}, {t_W_C[1,0]:.3f}, {t_W_C[2,0]:.3f}) [m], "
@@ -270,9 +270,9 @@ class WorldToStaticTopcamera(Node):
             f"{math.degrees(rpy[1]):.1f}, "
             f"{math.degrees(rpy[2]):.1f})"
         )
-        self.get_logger().info(msg_text)  # ROSログ
-        print(msg_text)  # ターミナル標準出力にも表示
-        # --- ★ここまで追加 ---
+        self.get_logger().info(msg_text)  # ROS log
+        print(msg_text)  # Also show on terminal stdout
+        # --- End of additional log output ---
 
         ps = PoseStamped()
         ps.header = msg.header
@@ -291,7 +291,7 @@ class WorldToStaticTopcamera(Node):
 
         self.get_logger().info(f"{log_tag} pos_world = ({t_W_C[0,0]:.3f}, {t_W_C[1,0]:.3f}, {t_W_C[2,0]:.3f})  (ID={marker_id})")
 
-        # 確定フラグ
+        # Mark solved flag
         self.done_flags[cam_name] = True
         self._finish_node()
 
