@@ -21,7 +21,8 @@ from cv_bridge import CvBridge
 
 # this node is only for Image, does not assume CameraInfo
 # input; sensor_msgs/Image　
-# output; vision_msgs/Detection3DArray 
+# output; vision_msgs/Detection3DArray
+# ros2 run mam_eurobot_2026 aruco_detector --ros-args -p image_topic:=<topic name>
 
 class ArucoDetectNode(Node):
     def __init__(self):
@@ -34,15 +35,20 @@ class ArucoDetectNode(Node):
         self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         # self.detector = aruco.ArucoDetector(aruco_dict, aruco.DetectorParameters())　# cannot be used in opencv 4.5.4
 
-        self.parameters = aruco.DetectorParameters_create()  # ← これ！
+        self.parameters = aruco.DetectorParameters_create()  
 
 
         self.bridge = CvBridge()
 
         qos = QoSProfile(depth=1)
         self.pub = self.create_publisher(Detection3DArray, '/aruco/detections', qos)
+        image_topic_param = self.declare_parameter('image_topic', value='')
+        self.image_topic = image_topic_param.get_parameter_value().string_value
+        if not self.image_topic:
+            raise ValueError("Parameter 'image_topic' is required. Pass via --ros-args -p image_topic:=<topic>.")
+        self.get_logger().info(f"Subscribing to image topic: {self.image_topic}")
         # self.create_subscription(Image, "/front_camera/image", self._image_callback, qos)
-        self.create_subscription(Image, "/front_camera", self._image_callback, qos)
+        self.create_subscription(Image, self.image_topic, self._image_callback, qos)
         # self.create_subscription(CameraInfo, "front_camera/camera_info", self.callback, 10)
     
 
