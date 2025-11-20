@@ -110,8 +110,8 @@ class WorldToStaticTopcamera(Node):
         super().__init__("world_to_topcamera")
 
         # ---- Parameters ----
-        self.declare_parameter("exit_on_complete", True)       # Exit once every camera is solved
-        self.declare_parameter("require_both_cameras", True)   # Require every camera listed in YAML
+        self.declare_parameter("exit_on_complete", False)       # Exit once every camera is solved
+        self.declare_parameter("require_both_cameras", False)   # Require every camera listed in YAML
         self.declare_parameter("config_yaml", "vision_settings.yaml")
 
         from pathlib import Path

@@ -29,8 +29,9 @@ setup(
         'console_scripts': [
             'py_test = mam_eurobot_2026.py_test:main',
             'aruco_detector = mam_eurobot_2026.vision.aruco_detector:main',
-            'color_detector = mam_eurobot_2026.vision.color_detector:main'
-            'world_to_topcamera = mam_eurobot_2026.vision.world_to_topcamera:main' 
+            'color_detector = mam_eurobot_2026.vision.color_detector:main',
+            'world_to_topcamera = mam_eurobot_2026.vision.world_to_topcamera:main' ,
+            'estimate_cursor_position = mam_eurobot_2026.vision.estimate_cursor_position:main' 
         ],
     },
 )

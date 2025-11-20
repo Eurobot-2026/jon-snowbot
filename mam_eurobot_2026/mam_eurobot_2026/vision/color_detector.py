@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Execution example : ros2 run mam_eurobot_2026 color_detector.py --image-topic /top_camera/image_2
+# Execution example : ros2 run mam_eurobot_2026 color_detector.py --image-topic /top_camera/image_3
 import sys
 import argparse
 import numpy as np
@@ -9,7 +9,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from rclpy.utilities import remove_ros_args
-
+from geometry_msgs.msg import PointStamped
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
@@ -37,6 +37,7 @@ class ColorDetector(Node):
         )
 
         self.bridge = CvBridge()
+        self.pub = self.create_publisher(PointStamped, '/camera/features/cursor_center', qos)
         self.sub = self.create_subscription(Image, image_topic, self.image_cb, qos)
 
         self.get_logger().info(f'Subscribed to: {image_topic}')
@@ -78,18 +79,27 @@ class ColorDetector(Node):
 
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        min_area = max(0, int(self.get_parameter('min_area').value))
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area < 200:  # remove small noises
+            if area < min_area:  # remove small noises
                 continue
 
-            rect = cv2.minAreaRect(cnt)
-            box = cv2.boxPoints(rect)
-            box = np.int0(box)
+            moments = cv2.moments(cnt)
+            if moments['m00'] == 0:
+                continue
 
-            # get the point which has smallest y
-            top_point = box[np.argmin(box[:, 1])]
+            cx = moments['m10'] / moments['m00']
+            cy = moments['m01'] / moments['m00']
+
+            msgn= PointStamped()
+            msgn.header = msg.header       
+            msgn.point.x = float(cx)
+            msgn.point.y = float(cy)
+            msgn.point.z = 0.0
+            self.pub.publish(msgn)
+            self.get_logger().info(f'Detected point; x:{cx}, y:{cy}')
 
             # visualize the point
             # cv2.circle(mask, tuple(top_point), 5, (255, 255, 255), -1)
