@@ -35,52 +35,160 @@
     <!-- FRONT LEFT -->
     <link name="front_left_wheel">
       <pose>0.1 0.09 0 -1.5707 0 0</pose>
-      <inertial><mass>0.2</mass></inertial>
+      <inertial>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.00008</ixx>
+          <iyy>0.00008</iyy>
+          <izz>0.00016</izz>
+        </inertia>
+      </inertial>
       <visual name="visual">
         <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
         <material><ambient>0.0 0.29 0.46 1</ambient></material>
       </visual>
       <collision name="collision">
         <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1</mu>
+              <mu2>0.01</mu2>
+              <fdir1>0 0 0</fdir1>
+              <slip1>0</slip1>
+              <slip2>0</slip2>
+            </ode>
+            <torsional>
+              <coefficient>0.1</coefficient>
+              <patch_radius>0</patch_radius>
+              <surface_radius>0</surface_radius>
+              <use_patch_radius>1</use_patch_radius>
+              <ode>
+                <slip>0</slip>
+              </ode>
+            </torsional>
+          </friction>
+        </surface>
       </collision>
     </link>
 
     <!-- FRONT RIGHT -->
     <link name="front_right_wheel">
       <pose>0.1 -0.09 0 -1.5707 0 0</pose>
-      <inertial><mass>0.2</mass></inertial>
+      <inertial>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.00008</ixx>
+          <iyy>0.00008</iyy>
+          <izz>0.00016</izz>
+        </inertia>
+      </inertial>
       <visual name="visual">
         <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
         <material><ambient>0.0 0.29 0.46 1</ambient></material>
       </visual>
       <collision name="collision">
         <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1</mu>
+              <mu2>0.01</mu2>
+              <fdir1>0 0 0</fdir1>
+              <slip1>0</slip1>
+              <slip2>0</slip2>
+            </ode>
+            <torsional>
+              <coefficient>0.1</coefficient>
+              <patch_radius>0</patch_radius>
+              <surface_radius>0</surface_radius>
+              <use_patch_radius>1</use_patch_radius>
+              <ode>
+                <slip>0</slip>
+              </ode>
+            </torsional>
+          </friction>
+        </surface>
       </collision>
     </link>
 
     <!-- REAR LEFT -->
     <link name="rear_left_wheel">
       <pose>-0.1 0.09 0 -1.5707 0 0</pose>
-      <inertial><mass>0.2</mass></inertial>
+      <inertial>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.00008</ixx>
+          <iyy>0.00008</iyy>
+          <izz>0.00016</izz>
+        </inertia>
+      </inertial>
       <visual name="visual">
         <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
         <material><ambient>0.0 0.29 0.46 1</ambient></material>
       </visual>
       <collision name="collision">
         <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1</mu>
+              <mu2>0.01</mu2>
+              <fdir1>0 0 0</fdir1>
+              <slip1>0</slip1>
+              <slip2>0</slip2>
+            </ode>
+            <torsional>
+              <coefficient>0.1</coefficient>
+              <patch_radius>0</patch_radius>
+              <surface_radius>0</surface_radius>
+              <use_patch_radius>1</use_patch_radius>
+              <ode>
+                <slip>0</slip>
+              </ode>
+            </torsional>
+          </friction>
+        </surface>
       </collision>
     </link>
 
     <!-- REAR RIGHT -->
     <link name="rear_right_wheel">
       <pose>-0.1 -0.09 0 -1.5707 0 0</pose>
-      <inertial><mass>0.2</mass></inertial>
+      <inertial>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.00008</ixx>
+          <iyy>0.00008</iyy>
+          <izz>0.00016</izz>
+        </inertia>
+      </inertial>
       <visual name="visual">
         <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
         <material><ambient>0.0 0.29 0.46 1</ambient></material>
       </visual>
       <collision name="collision">
         <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1</mu>
+              <mu2>0.01</mu2>
+              <fdir1>0 0 0</fdir1>
+              <slip1>0</slip1>
+              <slip2>0</slip2>
+            </ode>
+            <torsional>
+              <coefficient>0.1</coefficient>
+              <patch_radius>0</patch_radius>
+              <surface_radius>0</surface_radius>
+              <use_patch_radius>1</use_patch_radius>
+              <ode>
+                <slip>0</slip>
+              </ode>
+            </torsional>
+          </friction>
+        </surface>
       </collision>
     </link>
 
@@ -89,25 +197,65 @@
     <joint name="front_left_wheel_joint" type="revolute">
       <parent>chassis</parent>
       <child>front_left_wheel</child>
-      <axis><xyz>0 1 0</xyz></axis>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+        <dynamics>
+          <friction>0.0</friction>
+          <damping>0.0</damping>
+        </dynamics>
+      </axis>
     </joint>
 
     <joint name="front_right_wheel_joint" type="revolute">
       <parent>chassis</parent>
       <child>front_right_wheel</child>
-      <axis><xyz>0 1 0</xyz></axis>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+        <dynamics>
+          <friction>0.0</friction>
+          <damping>0.0</damping>
+        </dynamics>
+      </axis>
     </joint>
 
     <joint name="rear_left_wheel_joint" type="revolute">
       <parent>chassis</parent>
       <child>rear_left_wheel</child>
-      <axis><xyz>0 1 0</xyz></axis>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+        <dynamics>
+          <friction>0.0</friction>
+          <damping>0.0</damping>
+        </dynamics>
+      </axis>
     </joint>
 
     <joint name="rear_right_wheel_joint" type="revolute">
       <parent>chassis</parent>
       <child>rear_right_wheel</child>
-      <axis><xyz>0 1 0</xyz></axis>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+        <dynamics>
+          <friction>0.0</friction>
+          <damping>0.0</damping>
+        </dynamics>
+      </axis>
     </joint>
 
     <!-- JOINT VELOCITY CONTROLLERS -->
