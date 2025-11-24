@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from std_msgs.msg import Header
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import Image
 from rclpy.qos import QoSProfile
 from geometry_msgs.msg import Pose, PoseWithCovariance, Point, Quaternion, Vector3
 from rclpy.node import Node
@@ -16,7 +16,9 @@ import math
 import cv2
 import cv2.aruco as aruco
 import numpy as np
-import xml.etree.ElementTree as ET
+import yaml
+from pathlib import Path
+from importlib.resources import files
 from cv_bridge import CvBridge
 
 # this node is only for Image, does not assume CameraInfo
@@ -28,67 +30,138 @@ class ArucoDetectNode(Node):
     def __init__(self):
         super().__init__('aruco_detector')
         self.get_logger().info("Aruco Detect Node created!")
-        self._set_camera_parameters()
 
-        # aruco detector
-        self.marker_len_m = float(min(self.aruco_size)) if self.aruco_size else 0.13
-        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-        # self.detector = aruco.ArucoDetector(aruco_dict, aruco.DetectorParameters())　# cannot be used in opencv 4.5.4
-
-        self.parameters = aruco.DetectorParameters_create()  
-
-
-        self.bridge = CvBridge()
-
-        qos = QoSProfile(depth=1)
-        self.pub = self.create_publisher(Detection3DArray, '/aruco/detections', qos)
+        self.declare_parameter('config_yaml', 'vision_settings.yaml')
         image_topic_param = self.declare_parameter('image_topic', value='')
         self.image_topic = image_topic_param.get_parameter_value().string_value
         if not self.image_topic:
             raise ValueError("Parameter 'image_topic' is required. Pass via --ros-args -p image_topic:=<topic>.")
         self.get_logger().info(f"Subscribing to image topic: {self.image_topic}")
-        # self.create_subscription(Image, "/front_camera/image", self._image_callback, qos)
+        self.show_debug = bool(self.declare_parameter('show_debug_image', True).value)
+
+        cfg = self._load_config()
+        self._set_camera_parameters(cfg)
+
+        # aruco detector
+        self.parameters = aruco.DetectorParameters_create()
+
+        self.bridge = CvBridge()
+
+        qos = QoSProfile(depth=1)
+        self.pub = self.create_publisher(Detection3DArray, '/aruco/detections', qos)
         self.create_subscription(Image, self.image_topic, self._image_callback, qos)
-        # self.create_subscription(CameraInfo, "front_camera/camera_info", self.callback, 10)
     
+    def _load_config(self) -> dict:
+        """Load vision_settings.yaml from path or package data."""
+        cfg_name_or_path = self.get_parameter("config_yaml").get_parameter_value().string_value
 
-    def _set_camera_parameters(self):
-        # read SDF files
-        tree = ET.parse('/home/rosdev/eurobot_2026_ws/src/mam_eurobot_2026/models/simple_robot/model.sdf')
-        root = tree.getroot()
+        def _try_open_yaml(path_str: str):
+            p = Path(path_str)
+            if p.is_absolute() and p.exists():
+                with p.open('r', encoding='utf-8') as f:
+                    return yaml.safe_load(f)
+            cand = Path.cwd() / p
+            if cand.exists():
+                with cand.open('r', encoding='utf-8') as f:
+                    return yaml.safe_load(f)
+            return None
 
-        for sensor in root.iter('sensor'):
-            if sensor.get('name') == 'front_camera':
-                camera = sensor.find('camera')
-                hfov = camera.find('horizontal_fov').text
-                print(f"Horizontal FOV: {hfov}")
-                self.fov = float(hfov)
-                img = camera.find('image')
-                width = img.find('width').text
-                self.width = float(width)
-                height = img.find('height').text
-                self.height = float(height)
-                print(f"img size; {width}x{height}")
+        cfg = _try_open_yaml(cfg_name_or_path)
+        if cfg is None:
+            fname = Path(cfg_name_or_path).name if cfg_name_or_path else "vision_settings.yaml"
+            path = files("mam_eurobot_2026.vision").joinpath(fname)
+            if not path.is_file():
+                raise FileNotFoundError(f"Config not found at '{cfg_name_or_path}' or packaged file '{fname}'")
+            with path.open('r', encoding='utf-8') as f:
+                cfg = yaml.safe_load(f)
+            self.get_logger().info(f"Loaded config from package data: mam_eurobot_2026/vision/{fname}")
+        else:
+            self.get_logger().info(f"Loaded config from path: {cfg_name_or_path}")
 
-        tree_marker = ET.parse('/home/rosdev/eurobot_2026_ws/src/mam_eurobot_2026/models/crate_blue/model.sdf')
-        root_marker = tree_marker.getroot()
-        aruco_size = None
-        for visual in root_marker.iter('visual'):
-            if visual.get('name') == 'aruco_top':
-                plane = visual.find('.//plane')  
-                if plane is not None:
-                    size_tag = plane.find('size')
-                    if size_tag is not None:
-                        aruco_size = tuple(map(float, size_tag.text.split()))
-                        break
-        print(f"aruco size and type; {aruco_size}, {type(aruco_size)}")
-        self.aruco_size = aruco_size
+        return cfg
+
+
+    def _set_camera_parameters(self, cfg: dict):
+        g = cfg.get("global", {})
+        self.fov = math.radians(float(g.get("horizontal_fov_deg", 60.0)))
+        self.width = float(g.get("image_width", 640))
+        self.height = float(g.get("image_height", 480))
+        dict_name = str(g.get("aruco_dictionary", "DICT_4X4_50"))
+        self.aruco_dict = aruco.getPredefinedDictionary(getattr(aruco, dict_name, aruco.DICT_4X4_50))
+
+        cameras = cfg.get("cameras", [])
+        cam_cfg = None
+        for cam in cameras:
+            if cam.get("image_topic") == self.image_topic:
+                cam_cfg = cam
+                break
+        if cam_cfg is None and cameras:
+            cam_cfg = cameras[0]
+            self.get_logger().warn(
+                f"No camera in config matched image_topic={self.image_topic}; using first entry '{cam_cfg.get('name')}'."
+            )
+        if cam_cfg is None:
+            raise ValueError("No cameras defined in vision_settings.yaml; cannot configure ArUco detector.")
+
+        # marker size map: prefer per-ID sizes (when provided), or generic aruco length, else camera size
+        self.aruco_sizes, self.generic_aruco_len, self.allowed_ids = self._parse_arucos(cfg)
+        self.default_marker_len = self._marker_length_from_config(cfg, cam_cfg)
+        self.get_logger().info(
+            f"Camera config: name={cam_cfg.get('name')} topic={cam_cfg.get('image_topic')} "
+            f"marker_id={cam_cfg.get('marker_id')} marker_length_m={self.default_marker_len}"
+        )
+        log_sizes = []
+        if self.generic_aruco_len is not None:
+            log_sizes.append(f"default_arucos_length={self.generic_aruco_len}")
+        if self.aruco_sizes:
+            log_sizes.append(f"per_id_sizes={self.aruco_sizes}")
+        if log_sizes:
+            self.get_logger().info("Aruco size config: " + ", ".join(log_sizes))
+        if self.allowed_ids:
+            self.get_logger().info(f"Allowed ArUco IDs: {sorted(self.allowed_ids)} (others will be ignored)")
 
         # fx, fy calculate fx fy from hfov
         self.fx = self.width / (2.0 * math.tan(self.fov / 2.0))
         self.fy = self.fx
         self.cx = self.width / 2.0
         self.cy = self.height / 2.0
+
+    @staticmethod
+    def _marker_length_from_config(cfg: dict, cam_cfg: dict) -> float:
+        """Fallback marker length for camera pose solving."""
+        return float(cam_cfg.get("marker_length_m", 0.13))
+
+    @staticmethod
+    def _parse_arucos(cfg: dict) -> tuple:
+        """Return (per-id sizes, generic length, allowed_ids) from arucos section."""
+        sizes = {}
+        generic_len = None
+        allowed = set()
+        for aru in cfg.get("arucos", []):
+            if "marker_length_m" not in aru:
+                continue
+            try:
+                length = float(aru["marker_length_m"])
+            except (TypeError, ValueError):
+                continue
+            if "id" in aru:
+                try:
+                    mid = int(aru["id"])
+                    sizes[mid] = length
+                    allowed.add(mid)
+                except (TypeError, ValueError):
+                    continue
+            else:
+                generic_len = length
+        return sizes, generic_len, allowed
+
+    def _aruco_length_for_id(self, marker_id: int) -> float:
+        """Lookup marker size; fall back to default marker length from camera config."""
+        if int(marker_id) in self.aruco_sizes:
+            return self.aruco_sizes[int(marker_id)]
+        if self.generic_aruco_len is not None:
+            return self.generic_aruco_len
+        return self.default_marker_len
 
 
     def _image_callback(self, img_msg: Image):
@@ -113,9 +186,14 @@ class ArucoDetectNode(Node):
                       [0,     0,    1]], np.float32)
         D = np.zeros((5, 1), np.float32)
 
+        debug_frame = frame.copy() if self.show_debug else None
+
         # ArUco 検出
         # corners, ids, _ = self.detector.detectMarkers(frame) # cannot be used in opencv 4.5.4
         corners, ids, _ = aruco.detectMarkers(frame, self.aruco_dict, parameters=self.parameters)
+        if ids is not None and len(ids) > 0:
+            raw_ids = ids.flatten().tolist()
+            self.get_logger().info(f"Raw detected IDs: {raw_ids}")
         det_array = Detection3DArray()
         det_array.header = Header()
         det_array.header.stamp = img_msg.header.stamp
@@ -125,16 +203,24 @@ class ArucoDetectNode(Node):
             # if not detected, return empty matrix
             return det_array
 
-        # pose estimation
-        rvecs, tvecs, _objpts = aruco.estimatePoseSingleMarkers(
-            corners, self.marker_len_m, K, D
-        )
+        self.get_logger().info("---------- ArUco detection begin ----------")
 
-        # draw coordinate axis for debug
-        # for rvec, tvec in zip(rvecs, tvecs):
-        #     cv2.drawFrameAxes(frame, K, D, rvec, tvec, self.marker_len_m * 0.5)
+        for corner, marker_id in zip(corners, ids.flatten()):
+            if self.allowed_ids and int(marker_id) not in self.allowed_ids:
+                continue
+            marker_len = self._aruco_length_for_id(int(marker_id))
+            rvecs, tvecs, _objpts = aruco.estimatePoseSingleMarkers(
+                np.array([corner]), marker_len, K, D
+            )
+            rvec = rvecs[0]
+            tvec = tvecs[0]
 
-        for idx, (marker_id, rvec, tvec) in enumerate(zip(ids.flatten(), rvecs, tvecs)):
+            if debug_frame is not None:
+                try:
+                    cv2.drawFrameAxes(debug_frame, K, D, rvec, tvec, marker_len * 0.5)
+                except Exception as exc:
+                    self.get_logger().warn(f"drawFrameAxes failed: {exc}")
+
             # rvec/tvec -> Pose
             pose = self._rvec_tvec_to_pose(rvec.reshape(3), tvec.reshape(3))
 
@@ -152,7 +238,7 @@ class ArucoDetectNode(Node):
 
             bbox = BoundingBox3D()
             bbox.center = pose
-            sx = sy = float(self.marker_len_m)
+            sx = sy = float(marker_len)
             sz = 0.001
             bbox.size = Vector3(x=sx, y=sy, z=sz)
             det.bbox = bbox
@@ -167,6 +253,14 @@ class ArucoDetectNode(Node):
                 f"tvec (camera frame, meters): {tvec}\n"
                 f"Quaternion: (x={pose.orientation.x:.4f}, y={pose.orientation.y:.4f}, z={pose.orientation.z:.4f}, w={pose.orientation.w:.4f})\n"
             )
+        self.get_logger().info("---------- ArUco detection end   ----------")
+
+        if debug_frame is not None:
+            cv2.imshow("aruco_detector", debug_frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                self.get_logger().info("Quit requested (q) from debug window; shutting down...")
+                rclpy.shutdown()
+
         return det_array
     
     @staticmethod

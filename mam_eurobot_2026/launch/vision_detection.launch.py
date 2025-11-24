@@ -25,17 +25,26 @@ def generate_launch_description():
         output="screen",
     )
 
-    aruco_detector = Node(
+    aruco_detector_top_camera = Node(
         package="mam_eurobot_2026",
         executable="aruco_detector.py",
-        name="aruco_detector",
+        name="aruco_detector_top",
         output="screen",
         parameters=[{"image_topic": "/top_camera/image_3"}],
+    )
+
+    aruco_detector_front_camera = Node(
+        package="mam_eurobot_2026",
+        executable="aruco_detector.py",
+        name="aruco_detector_front",
+        output="screen",
+        parameters=[{"image_topic": "/front_camera"}],
     )
 
     return LaunchDescription([
         color_detector,
         world_to_topcamera,
         estimate_cursor,
-        aruco_detector,
+        aruco_detector_top_camera,
+        aruco_detector_front_camera
     ])
