@@ -12,7 +12,7 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 import os
 
-MAC = True # for testing on Mac
+MAC = False # for testing on Mac
 current_display = os.environ.get('DISPLAY', ':0')  # get current DISPLAY
 print(f"Detected DISPLAY: {current_display}")
 

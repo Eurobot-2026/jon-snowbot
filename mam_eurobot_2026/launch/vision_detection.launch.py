@@ -25,13 +25,13 @@ def generate_launch_description():
         output="screen",
     )
 
-    aruco_detector_top_camera = Node(
-        package="mam_eurobot_2026",
-        executable="aruco_detector.py",
-        name="aruco_detector_top",
-        output="screen",
-        parameters=[{"image_topic": "/top_camera/image_3"}],
-    )
+    # aruco_detector_top_camera = Node(
+    #     package="mam_eurobot_2026",
+    #     executable="aruco_detector.py",
+    #     name="aruco_detector_top",
+    #     output="screen",
+    #     parameters=[{"image_topic": "/top_camera/image_3"}],
+    # ) commented out because this is useless for now. It cant detect aruco on crates from top camera
 
     aruco_detector_front_camera = Node(
         package="mam_eurobot_2026",
@@ -45,6 +45,6 @@ def generate_launch_description():
         color_detector,
         world_to_topcamera,
         estimate_cursor,
-        aruco_detector_top_camera,
+        # aruco_detector_top_camera,
         aruco_detector_front_camera
     ])
