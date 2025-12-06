@@ -107,17 +107,34 @@ def generate_launch_description():
     )
 
     # ---------------- Wheel velocity bridges ----------------
-    wheel_bridges = Node(
+    # wheel_bridges = Node(
+    #     package='ros_gz_bridge',
+    #     executable='parameter_bridge',
+    #     name='wheel_velocity_bridges',
+    #     output='screen',
+    #     arguments=[
+    #         '/omni/front_left_speed@std_msgs/msg/Float64@gz.msgs.Double',
+    #         '/omni/front_right_speed@std_msgs/msg/Float64@gz.msgs.Double',
+    #         '/omni/rear_left_speed@std_msgs/msg/Float64@gz.msgs.Double',
+    #         '/omni/rear_right_speed@std_msgs/msg/Float64@gz.msgs.Double',
+    #     ],
+    # )
+    mecanum_drive_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
-        name='wheel_velocity_bridges',
+        name='mecanum_drive_bridge',
         output='screen',
         arguments=[
-            '/omni/front_left_speed@std_msgs/msg/Float64@gz.msgs.Double',
-            '/omni/front_right_speed@std_msgs/msg/Float64@gz.msgs.Double',
-            '/omni/rear_left_speed@std_msgs/msg/Float64@gz.msgs.Double',
-            '/omni/rear_right_speed@std_msgs/msg/Float64@gz.msgs.Double',
+            # Command Velocity: ROS 2 -> Gazebo
+            '/model/simple_robot/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
+            # Odometry Feedback: Gazebo -> ROS 2
+            '/model/simple_robot/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry',
         ],
+        # Optional: Remap the ROS 2 topic to a more conventional name if needed
+        # remappings=[
+        #     ('/model/simple_robot/cmd_vel', '/cmd_vel'),
+        #     ('/model/simple_robot/odometry', '/odom'),
+        # ],
     )
 
     # ---------------- Bridges: camera ----------------
@@ -169,8 +186,9 @@ def generate_launch_description():
         world_arg,
         ign,
         spawn_after_ign,
-        wheel_bridges,     # <—— added
+        # wheel_bridges,     # <—— added
         img_bridge,
+        mecanum_drive_bridge,
         camera_bridge,
         rviz,
     ])
