@@ -2,6 +2,7 @@
 import math
 from typing import Optional, Tuple
 
+import cv2
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -9,8 +10,17 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.duration import Duration
 from rclpy.time import Time
 
-from geometry_msgs.msg import PointStamped
-from tf2_ros import Buffer, TransformListener, LookupException, ConnectivityException, ExtrapolationException
+from cv_bridge import CvBridge
+from geometry_msgs.msg import PointStamped, TransformStamped
+from sensor_msgs.msg import Image
+from tf2_ros import (
+    Buffer,
+    TransformListener,
+    LookupException,
+    ConnectivityException,
+    ExtrapolationException,
+    TransformBroadcaster,
+)
 import tf_transformations as tft
 
 """
@@ -23,6 +33,8 @@ Assumptions:
   - Camera intrinsics follow the parameters declared in this node.
 Output:
   - /world_coordinate/cursor (geometry_msgs/PointStamped) reporting cursor position in world frame.
+  - TF world -> cursor_frame (translation-only; cursor frame shares world's orientation).
+  - OpenCV window that overlays the cursor frame axes on the incoming image.
 """
 
 
@@ -51,6 +63,9 @@ class CursorPositionEstimator(Node):
         self.declare_parameter("image_height", 480)
         self.declare_parameter("horizontal_fov_deg", 60.0)
         self.declare_parameter("tf_timeout_sec", 0.2)
+        self.declare_parameter("cursor_frame", "cursor_frame")
+        self.declare_parameter("cursor_axis_length_m", 0.1)
+        self.declare_parameter("viz_image_topic", "/top_camera/image_3")
 
         w = int(self.get_parameter("image_width").value)
         h = int(self.get_parameter("image_height").value)
@@ -60,7 +75,10 @@ class CursorPositionEstimator(Node):
         self.cursor_world_x = float(self.get_parameter("cursor_world_x").value)
         self.camera_frame = str(self.get_parameter("camera_frame").value)
         self.world_frame = str(self.get_parameter("world_frame").value)
+        self.cursor_frame = str(self.get_parameter("cursor_frame").value)
         self.tf_timeout = Duration(seconds=float(self.get_parameter("tf_timeout_sec").value))
+        self.cursor_axis_len = float(self.get_parameter("cursor_axis_length_m").value)
+        self.viz_image_topic = str(self.get_parameter("viz_image_topic").value or "")
 
         qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -78,6 +96,28 @@ class CursorPositionEstimator(Node):
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.tf_broadcaster = TransformBroadcaster(self)
+
+        self.bridge: Optional[CvBridge] = None
+        self.image_sub = None
+        self.window_name = "Cursor frame overlay"
+        if self.viz_image_topic:
+            self.bridge = CvBridge()
+            image_qos = QoSProfile(
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+                history=HistoryPolicy.KEEP_LAST,
+                depth=5,
+            )
+            self.image_sub = self.create_subscription(Image, self.viz_image_topic, self._image_callback, image_qos)
+            self.get_logger().info(f"Visualization enabled; subscribing to {self.viz_image_topic}")
+        else:
+            self.get_logger().info("Visualization disabled (viz_image_topic is empty).")
+
+        # Cache the latest cursor pose and transform for visualization.
+        self.last_cursor_world: Optional[np.ndarray] = None
+        self.last_cursor_stamp = None
+        self.last_R_wc: Optional[np.ndarray] = None
+        self.last_t_wc: Optional[np.ndarray] = None
         self.get_logger().info(
             f"Awaiting cursor pixels on {self.get_parameter('input_topic').value}. "
             f"Publishing world points to {self.get_parameter('output_topic').value}."
@@ -134,6 +174,92 @@ class CursorPositionEstimator(Node):
         world_point[2] = self.cursor_height
         return world_point
 
+    def _publish_cursor_tf(self, world_point: np.ndarray, stamp):
+        """Broadcast world -> cursor_frame as a pure translation (orientation matches world)."""
+        tf_msg = TransformStamped()
+        tf_msg.header.frame_id = self.world_frame
+        tf_msg.child_frame_id = self.cursor_frame
+        tf_msg.header.stamp = stamp
+        tf_msg.transform.translation.x = float(world_point[0])
+        tf_msg.transform.translation.y = float(world_point[1])
+        tf_msg.transform.translation.z = float(world_point[2])
+        tf_msg.transform.rotation.x = 0.0
+        tf_msg.transform.rotation.y = 0.0
+        tf_msg.transform.rotation.z = 0.0
+        tf_msg.transform.rotation.w = 1.0
+        self.tf_broadcaster.sendTransform(tf_msg)
+
+    def _project_world_points(self, points_w: np.ndarray, R_wc: np.ndarray, t_wc: np.ndarray) -> Optional[np.ndarray]:
+        """Project world points to pixel coordinates; returns Nx2 array or None on invalid depth."""
+        R_cw = R_wc.T
+        pixels = []
+        for p_w in points_w:
+            p_c = R_cw @ (p_w - t_wc)
+            if p_c[2] <= 1e-6:
+                return None
+            u = (p_c[0] / p_c[2]) * self.fx + self.cx
+            v = (p_c[1] / p_c[2]) * self.fy + self.cy
+            pixels.append((u, v))
+        return np.array(pixels, dtype=np.float64)
+
+    def _draw_cursor_axes(self, frame: np.ndarray) -> Optional[np.ndarray]:
+        """Overlay cursor axes on the frame using the last cursor pose and transform."""
+        if self.last_cursor_world is None or self.last_R_wc is None or self.last_t_wc is None:
+            return None
+
+        origin = self.last_cursor_world
+        axes_world = np.array([
+            origin,
+            origin + np.array([self.cursor_axis_len, 0.0, 0.0]),
+            origin + np.array([0.0, self.cursor_axis_len, 0.0]),
+            origin + np.array([0.0, 0.0, self.cursor_axis_len]),
+        ], dtype=np.float64)
+
+        pixels = self._project_world_points(axes_world, self.last_R_wc, self.last_t_wc)
+        if pixels is None:
+            return None
+
+        overlay = frame.copy()
+        origin_px = tuple(np.round(pixels[0]).astype(int))
+        colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0)]  # x, y, z
+        for idx, color in enumerate(colors, start=1):
+            end_px = tuple(np.round(pixels[idx]).astype(int))
+            cv2.line(overlay, origin_px, end_px, color, 2, cv2.LINE_AA)
+        cv2.circle(overlay, origin_px, 4, (255, 255, 255), -1)
+        cv2.putText(
+            overlay,
+            f"{self.cursor_frame} (world-aligned)",
+            (origin_px[0] + 5, origin_px[1] - 8),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
+        return overlay
+
+    def _image_callback(self, msg: Image):
+        if self.bridge is None:
+            return
+        try:
+            frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        except Exception as exc:
+            self.get_logger().warn(f"Failed to convert image for visualization: {exc}")
+            return
+
+        if self.last_cursor_world is None:
+            return
+
+        # Use the latest known transform from the cursor callback.
+        overlay = self._draw_cursor_axes(frame)
+        if overlay is None:
+            return
+
+        cv2.imshow(self.window_name, overlay)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            self.get_logger().info("Quit visualization requested (q).")
+            rclpy.shutdown()
+
     def _cursor_callback(self, msg: PointStamped):
         transform = self._lookup_transform()
         if transform is None:
@@ -151,6 +277,13 @@ class CursorPositionEstimator(Node):
         out.point.z = float(world_point[2])
         self.get_logger().info(f"cursor point in world; x:{world_point[0]}, y:{world_point[1]}, z:{world_point[2]}")
         self.publisher.publish(out)
+        self._publish_cursor_tf(world_point, out.header.stamp)
+
+        # Cache for visualization
+        self.last_cursor_world = world_point
+        self.last_cursor_stamp = out.header.stamp
+        self.last_R_wc = R_wc
+        self.last_t_wc = t_wc
 
 
 def main():

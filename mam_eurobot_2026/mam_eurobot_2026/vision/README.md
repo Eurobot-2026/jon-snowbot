@@ -26,10 +26,10 @@ Reference for the ROS 2 nodes in `mam_eurobot_2026/vision`: what each one does, 
   ```
 
 ## estimate_cursor_position
-- **Node**: `estimate_cursor_position` – projects cursor pixels into world coordinates using the TF from `world_to_topcamera`.
-- **Inputs**: `/camera/features/cursor_center` (`geometry_msgs/PointStamped`, pixel coordinates, BEST_EFFORT) and TF `world -> camera_frame` (default `observation_device_optical_frame`).
-- **Outputs**: `/world_coordinate/cursor` (`geometry_msgs/PointStamped` in `world` frame).
-- **Key parameters**: `cursor_height` (0.08 m), `cursor_world_x` (-1.0 m), `image_width/height` (640x480), `horizontal_fov_deg` (60.0), `input_topic`, `output_topic`, `camera_frame`, `world_frame`, `tf_timeout_sec`.
+- **Node**: `estimate_cursor_position` – projects cursor pixels into world coordinates using the TF from `world_to_topcamera`, broadcasts a cursor TF, and overlays that frame on the incoming image.
+- **Inputs**: `/camera/features/cursor_center` (`geometry_msgs/PointStamped`, pixel coordinates, BEST_EFFORT) and TF `world -> camera_frame` (default `observation_device_optical_frame`). Visualization subscribes to `viz_image_topic` (defaults to `/top_camera/image_3`).
+- **Outputs**: `/world_coordinate/cursor` (`geometry_msgs/PointStamped` in `world` frame) and TF `world -> cursor_frame` (translation-only, identity rotation).
+- **Key parameters**: `cursor_height` (0.08 m), `cursor_world_x` (-1.0 m), `image_width/height` (640x480), `horizontal_fov_deg` (60.0), `input_topic`, `output_topic`, `camera_frame`, `world_frame`, `cursor_frame` (`cursor_frame`), `cursor_axis_length_m` (0.1 m), `viz_image_topic` (image used for overlay), `tf_timeout_sec`.
 - **Run**:
   ```bash
   ros2 run mam_eurobot_2026 estimate_cursor_position
