@@ -40,6 +40,15 @@ install(DIRECTORY worlds DESTINATION share/${PROJECT_NAME})
 # Install models files
 install(DIRECTORY models DESTINATION share/${PROJECT_NAME})
 
+# Install path planning assets (configs, maps, RViz)
+install(DIRECTORY mam_eurobot_2026/path_planning
+  DESTINATION share/${PROJECT_NAME}/path_planning
+  FILES_MATCHING
+    PATTERN "*.yaml"
+    PATTERN "*.rviz"
+    PATTERN "*.pgm"
+)
+
 # Install Python modules
 ament_python_install_package(${PROJECT_NAME})
 
@@ -49,5 +58,7 @@ install(PROGRAMS ${PROJECT_NAME}/vision/aruco_detector.py DESTINATION lib/${PROJ
 install(PROGRAMS ${PROJECT_NAME}/vision/color_detector.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/vision/world_to_topcamera.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/vision/estimate_cursor_position.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/path_planning/staging_path_planner_node.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/path_planning/gen_blank_map.py DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
