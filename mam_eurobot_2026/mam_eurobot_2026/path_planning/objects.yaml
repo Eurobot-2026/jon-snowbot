@@ -1,6 +1,4 @@
 frame_id: "map"
 crates:
-  - id: "crate_1"
-    staging: { x: 1.20, y: 0.60, yaw: 0.0 }
-  - id: "crate_2"
-    staging: { x: 1.20, y: 2.40, yaw: 0.0 }
+  - id: "target"
+    staging: { x: 0.9, y: -0.2, yaw: 1.57 }
