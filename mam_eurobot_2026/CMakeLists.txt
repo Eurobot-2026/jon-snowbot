@@ -60,5 +60,6 @@ install(PROGRAMS ${PROJECT_NAME}/vision/world_to_topcamera.py DESTINATION lib/${
 install(PROGRAMS ${PROJECT_NAME}/vision/estimate_cursor_position.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/path_planning/staging_path_planner_node.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/path_planning/gen_blank_map.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/path_planning/dammy_TF.py DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
