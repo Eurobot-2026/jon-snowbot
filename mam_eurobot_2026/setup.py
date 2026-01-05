@@ -1,3 +1,4 @@
+from glob import glob
 from setuptools import setup, find_packages
 
 # package_name = 'mam_eurobot_2026*'
@@ -18,6 +19,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (f'share/{package_name}/path_planning', glob('mam_eurobot_2026/path_planning/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -31,7 +33,8 @@ setup(
             'aruco_detector = mam_eurobot_2026.vision.aruco_detector:main',
             'color_detector = mam_eurobot_2026.vision.color_detector:main',
             'world_to_topcamera = mam_eurobot_2026.vision.world_to_topcamera:main' ,
-            'estimate_cursor_position = mam_eurobot_2026.vision.estimate_cursor_position:main' 
+            'estimate_cursor_position = mam_eurobot_2026.vision.estimate_cursor_position:main',
+            'staging_path_planner_node = mam_eurobot_2026.path_planning.staging_path_planner_node:main',
         ],
     },
 )
