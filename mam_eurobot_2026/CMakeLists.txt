@@ -41,7 +41,7 @@ install(DIRECTORY worlds DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY models DESTINATION share/${PROJECT_NAME})
 
 # Install path planning assets (configs, maps, RViz)
-install(DIRECTORY mam_eurobot_2026/path_planning
+install(DIRECTORY mam_eurobot_2026/path_planning/
   DESTINATION share/${PROJECT_NAME}/path_planning
   FILES_MATCHING
     PATTERN "*.yaml"

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 from typing import List
 
@@ -47,12 +45,13 @@ def generate_launch_description() -> LaunchDescription:
     use_sim_time = LaunchConfiguration("use_sim_time")
 
     footprint = _load_footprint(robot_model_yaml)
-    global_costmap_override = {"global_costmap": {"ros__parameters": {"footprint": footprint}}}
-    local_costmap_override = {"local_costmap": {"ros__parameters": {"footprint": footprint}}}
+    footprint_str = str(footprint)
+    global_costmap_override = {"global_costmap": {"ros__parameters": {"footprint": footprint_str}}}
+    local_costmap_override = {"local_costmap": {"ros__parameters": {"footprint": footprint_str}}}
 
     return LaunchDescription(
         [
-            DeclareLaunchArgument("use_sim_time", default_value="false"),
+            DeclareLaunchArgument("use_sim_time", default_value="true"),
             Node(
                 package="nav2_map_server",
                 executable="map_server",
@@ -82,7 +81,7 @@ def generate_launch_description() -> LaunchDescription:
             ),
             Node(
                 package="mam_eurobot_2026",
-                executable="staging_path_planner_node",
+                executable="staging_path_planner_node.py",
                 name="staging_path_planner",
                 output="screen",
                 parameters=[{"objects_yaml": objects_yaml}],
