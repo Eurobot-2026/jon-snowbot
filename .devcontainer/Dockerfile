@@ -22,7 +22,12 @@ USER $USERNAME
 
 # Install Gazebo
 RUN sudo apt update && \
-    sudo apt-get install -y ros-${ROS_DISTRO}-ros-gz
+    sudo apt-get install -y \
+    ros-${ROS_DISTRO}-ros-gz \
+    ros-${ROS_DISTRO}-navigation2 \
+    ros-${ROS_DISTRO}-nav2-bringup \
+    && sudo apt-get clean \
+    && sudo rm -rf /var/lib/apt/lists/*
 
 # Create workspace so that user own this directory
 RUN mkdir -p /home/$USERNAME/eurobot_2026_ws/src
