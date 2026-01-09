@@ -30,6 +30,9 @@ def _spawn_model_cmd(file_uri: str, name: str, x: float, y: float, z: float, Y: 
 
 
 def generate_launch_description():
+    os.system("pkill -9 -f ign")
+    os.system("pkill -9 -f gz")
+
     pkg_share = FindPackageShare('mam_eurobot_2026')
     model_path = PathJoinSubstitution([pkg_share, 'models'])
 
@@ -137,6 +140,16 @@ def generate_launch_description():
         # ],
     )
 
+    gripper_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='gripper_bridge',
+        output='screen',
+        arguments=[
+            '/gripper/cmd_pos@std_msgs/msg/Float64@ignition.msgs.Double',
+        ],
+    )
+
     # ---------------- Bridges: camera ----------------
     img_bridge = Node(
         package='ros_gz_image',
@@ -189,6 +202,7 @@ def generate_launch_description():
         # wheel_bridges,     # <—— added
         img_bridge,
         mecanum_drive_bridge,
+        gripper_bridge,
         camera_bridge,
         rviz,
     ])
