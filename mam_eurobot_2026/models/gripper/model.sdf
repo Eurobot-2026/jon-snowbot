@@ -108,8 +108,8 @@
       <axis>
         <xyz>0 1 0</xyz>
         <limit>
-          <lower>-0.02</lower>
-          <upper>0.02</upper>
+          <lower>-0.1</lower>
+          <upper>0.1</upper>
           <effort>50</effort>
           <velocity>0.2</velocity>
         </limit>
@@ -124,10 +124,10 @@
       <parent>base_link</parent>
       <child>finger_right</child>
       <axis>
-        <xyz>0 1 0</xyz>
+        <xyz>0 -1 0</xyz>
         <limit>
-          <lower>-0.02</lower>
-          <upper>0.02</upper>
+          <lower>-0.1</lower>
+          <upper>0.1</upper>
           <effort>50</effort>
           <velocity>0.2</velocity>
         </limit>
@@ -136,13 +136,22 @@
           <friction>1</friction>
         </dynamics>
       </axis>
-      <mimic joint="finger_left_joint" multiplier="-1" offset="0"/>
     </joint>
 
     <plugin
       filename="libignition-gazebo-joint-position-controller-system.so"
       name="ignition::gazebo::systems::JointPositionController">
       <joint_name>finger_left_joint</joint_name>
+      <topic>/gripper/cmd_pos</topic>
+      <p_gain>80</p_gain>
+      <d_gain>2</d_gain>
+    </plugin>
+
+    <plugin
+      filename="libignition-gazebo-joint-position-controller-system.so"
+      name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>finger_right_joint</joint_name>
+      <topic>/gripper/cmd_pos</topic>
       <p_gain>80</p_gain>
       <d_gain>2</d_gain>
     </plugin>

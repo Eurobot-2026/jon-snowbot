@@ -22,8 +22,8 @@ class GripperKeyboard(Node):
             'command_topic',
             '/gripper/cmd_pos',
         )
-        self.declare_parameter('open_position', 0.5)
-        self.declare_parameter('closed_position', -0.5)
+        self.declare_parameter('open_position', 0)
+        self.declare_parameter('closed_position', -0.05)
 
         self.command_topic = self.get_parameter('command_topic').value
         self.open_position = float(self.get_parameter('open_position').value)
