@@ -23,6 +23,7 @@ setup(
         'console_scripts': [
             'py_test = mam_eurobot_2026.py_test:main',
             'aruco_detector = mam_eurobot_2026.vision.aruco_detector:main',
+            'gripper_keyboard = mam_eurobot_2026.gripper.keyboard_gripper:main',
         ],
     },
 )
