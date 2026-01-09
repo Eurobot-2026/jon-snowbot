@@ -39,6 +39,12 @@
       </collision>
     </link>
 
+    <include>
+      <uri>model://gripper</uri>
+      <name>front_gripper</name>
+      <pose>0.12 0 0.05 0 0 0</pose>
+    </include>
+
     <!-- WHEELS -->
 
     <!-- FRONT LEFT -->
@@ -2337,6 +2343,11 @@
 
 
     <!-- JOINTS -->
+
+    <joint name="front_gripper_fixed_joint" type="fixed">
+      <parent>chassis</parent>
+      <child>front_gripper::base_link</child>
+    </joint>
 
     <joint name="front_left_wheel_joint" type="revolute">
       <parent>chassis</parent>
