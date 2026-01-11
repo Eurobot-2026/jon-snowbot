@@ -5,14 +5,16 @@ from launch.actions import (
     ExecuteProcess,
     SetEnvironmentVariable,
     RegisterEventHandler,
+    LogInfo,
 )
 from launch.event_handlers import OnProcessStart
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 import os
 
-MAC = False # for testing on Mac
+MAC = True # for testing on Mac
 current_display = os.environ.get('DISPLAY', ':0')  # get current DISPLAY
 print(f"Detected DISPLAY: {current_display}")
 
@@ -89,6 +91,8 @@ def generate_launch_description():
         description='SDF world file'
     )
     world_cfg = LaunchConfiguration('world')
+    urdf_path = PathJoinSubstitution([pkg_share, 'urdf', 'simple_robot_camera.urdf'])
+    robot_description = ParameterValue(Command(['cat', urdf_path]), value_type=str)
 
     # ============ Ignition (Gazebo Sim) ============
     ign = ExecuteProcess(
@@ -171,6 +175,13 @@ def generate_launch_description():
             '/world/eurobot_2026_arena/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock',
         ],
     )
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        parameters=[{'robot_description': robot_description}],
+        output='screen',
+    )
 
     # ============ RViz ============
     if MAC:
@@ -206,6 +217,8 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        LogInfo(msg=['pkg_share: ', pkg_share]),
+        LogInfo(msg=['model_path: ', model_path]),
         *env_actions,
         world_arg,
         ign,
@@ -216,5 +229,6 @@ def generate_launch_description():
         # top_img_bridge_2,
         top_img_bridge_3,
         camera_bridge,
+        robot_state_publisher,
         rviz,
     ])
