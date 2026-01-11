@@ -49,6 +49,13 @@ install(DIRECTORY mam_eurobot_2026/path_planning/
     PATTERN "*.pgm"
 )
 
+# Install task manager assets
+install(DIRECTORY mam_eurobot_2026/task_manager/
+  DESTINATION share/${PROJECT_NAME}/task_manager
+  FILES_MATCHING
+    PATTERN "*.yaml"
+)
+
 # Install Python modules
 ament_python_install_package(${PROJECT_NAME})
 
@@ -61,5 +68,7 @@ install(PROGRAMS ${PROJECT_NAME}/vision/estimate_cursor_position.py DESTINATION 
 install(PROGRAMS ${PROJECT_NAME}/path_planning/staging_path_planner_node.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/path_planning/gen_blank_map.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/path_planning/dammy_TF.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/path_planning/task_goal_path_planner_node.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/task_manager/task_manager_fsm.py DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

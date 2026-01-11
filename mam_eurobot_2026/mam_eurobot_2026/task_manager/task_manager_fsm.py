@@ -8,9 +8,10 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.time import Time
 
-from geometry_msgs.msg import PoseStamped, Quaternion, Twist
+from geometry_msgs.msg import PointStamped, PoseStamped, Quaternion, Twist
 from action_msgs.msg import GoalStatus
 from nav2_msgs.action import NavigateToPose
+from rclpy.duration import Duration
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool, String
 from vision_msgs.msg import Detection3DArray
@@ -170,6 +171,7 @@ class TaskManagerFSM(Node):
         self._timeout_select_crate = float(self.declare_parameter("timeout_select_crate", 5.0).value)
         self._timeout_nav = float(self.declare_parameter("timeout_nav", 20.0).value)
         self._timeout_align = float(self.declare_parameter("timeout_align", 5.0).value)
+        self._timeout_hook = float(self.declare_parameter("timeout_hook", 5.0).value)
         self._timeout_gripper = float(self.declare_parameter("timeout_gripper", 5.0).value)
         self._timeout_verify = float(self.declare_parameter("timeout_verify", 5.0).value)
         self._timeout_return = float(self.declare_parameter("timeout_return", 30.0).value)
@@ -178,6 +180,11 @@ class TaskManagerFSM(Node):
         self._gripper_closed_pos = float(self.declare_parameter("gripper_closed_pos", 0.0).value)
         self._gripper_closed_tol = float(self.declare_parameter("gripper_closed_tol", 0.01).value)
         self._pantry_region_xy = self.declare_parameter("pantry_region_xy", [0.2, 0.2]).value
+        self._cursor_topic = self.declare_parameter("cursor_topic", "/world_coordinate/cursor").value
+        self._cursor_grab_duration = float(self.declare_parameter("cursor_grab_duration", 1.0).value)
+        self._cursor_grab_speed = float(self.declare_parameter("cursor_grab_speed", 0.05).value)
+        self._cursor_release_duration = float(self.declare_parameter("cursor_release_duration", 1.0).value)
+        self._cursor_release_speed = float(self.declare_parameter("cursor_release_speed", -0.05).value)
 
         self._nav_action_name = self.declare_parameter("nav_action_name", "navigate_to_pose").value
         self._nav = Nav2Adapter(self, self._nav_action_name)
@@ -200,18 +207,24 @@ class TaskManagerFSM(Node):
         self._allow_second_pick = False
         self._grasp_retry = 0
         self._nav_retry = 0
+        self._cursor_pose: Optional[PoseStamped] = None
+        self._cursor_goal_pose: Optional[PoseStamped] = None
 
         self._has_object = None
         self._gripper_joint_pos = None
 
         self._pantry_map = self._load_pantry_yaml(self._pantry_yaml)
+        self._cursor_goal_pose = self._get_cursor_goal_pose()
         self._crates_adapter = DetectedCratesAdapter()
 
         self._task_state_pub = self.create_publisher(String, "/task_state", 10)
+        self._task_goal_topic = self.declare_parameter("task_goal_topic", "/task_goal").value
+        self._task_goal_pub = self.create_publisher(PoseStamped, self._task_goal_topic, 10)
         self._cmd_vel_pub = self.create_publisher(Twist, "cmd_vel", 10)
 
         self.create_subscription(JointState, "/joint_states", self._on_joint_states, 10)
         self.create_subscription(Bool, "/gripper_has_object", self._on_has_object, 10)
+        self.create_subscription(PointStamped, self._cursor_topic, self._on_cursor_point, 10)
         self.create_subscription(
             self._crates_adapter.MSG_TYPE,
             "/detected_crates",
@@ -254,6 +267,50 @@ class TaskManagerFSM(Node):
         for crate_id, pose in crates:
             self._crates[crate_id] = pose
 
+    def _on_cursor_point(self, msg: PointStamped) -> None:
+        if self._cursor_pose is not None:
+            return
+        pose = self._cursor_point_to_pose(msg)
+        if pose is not None:
+            self._cursor_pose = pose
+
+    def _cursor_point_to_pose(self, msg: PointStamped) -> Optional[PoseStamped]:
+        if not msg.header.frame_id:
+            return None
+        if msg.header.frame_id != self._global_frame:
+            try:
+                msg = self._tf_buffer.transform(
+                    msg,
+                    self._global_frame,
+                    timeout=Duration(seconds=0.2),
+                )
+            except Exception as exc:  # noqa: BLE001
+                self.get_logger().warn(f"Cursor TF failed {msg.header.frame_id}->{self._global_frame}: {exc}")
+                return None
+        yaw = 0.0
+        robot_pose = self._get_robot_pose()
+        if robot_pose is not None:
+            yaw = robot_pose[2]
+        pose = _make_pose_stamped(msg.point.x, msg.point.y, yaw, self._global_frame)
+        pose.header.stamp = msg.header.stamp
+        return pose
+
+    def _get_robot_pose(self) -> Optional[Tuple[float, float, float]]:
+        try:
+            tf = self._tf_buffer.lookup_transform(
+                self._global_frame,
+                self._base_frame,
+                Time(),
+            )
+            yaw = _quat_to_yaw(tf.transform.rotation)
+            self._last_base_xy = (
+                tf.transform.translation.x,
+                tf.transform.translation.y,
+            )
+            return self._last_base_xy[0], self._last_base_xy[1], yaw
+        except Exception:  # noqa: BLE001
+            return None
+
     def _elapsed(self) -> float:
         return time.monotonic() - self._start_time
 
@@ -264,6 +321,16 @@ class TaskManagerFSM(Node):
         msg = String()
         msg.data = f"{self._state}|crate={self._current_crate_id}|pantry={self._current_pantry_id}|reason={self._last_reason}"
         self._task_state_pub.publish(msg)
+
+    def _publish_goal(self, pose: PoseStamped, label: str) -> None:
+        if pose is None:
+            return
+        msg = PoseStamped()
+        msg.header = pose.header
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.pose = pose.pose
+        self._task_goal_pub.publish(msg)
+        self.get_logger().info(f"Published task goal ({label}) to {self._task_goal_topic}")
 
     def _set_state(self, new_state: str, reason: str = "") -> None:
         if new_state != self._state:
@@ -313,6 +380,13 @@ class TaskManagerFSM(Node):
         data = self._pantry_map.get(pantry_id)
         if not data:
             self.get_logger().warn(f"Pantry '{pantry_id}' not found in pantry_yaml.")
+            return None
+        return _make_pose_stamped(data["x"], data["y"], data["yaw"], self._global_frame)
+
+    def _get_cursor_goal_pose(self) -> Optional[PoseStamped]:
+        data = self._pantry_map.get("cursor_goal")
+        if not data:
+            self.get_logger().warn("cursor_goal not found in pantry_yaml; MOVE_CURSOR will be skipped.")
             return None
         return _make_pose_stamped(data["x"], data["y"], data["yaw"], self._global_frame)
 
@@ -383,6 +457,65 @@ class TaskManagerFSM(Node):
             return
 
         if self._state == "MOVE_CURSOR":
+            if not self._cursor_goal_pose:
+                self._set_state("NAV_TO_CURSOR", "cursor_goal missing; continue")
+                return
+            if self._cursor_pose is None:
+                return
+            self._nav_retry = 0
+            self._set_state("NAV_TO_CURSOR", "cursor acquired")
+            return
+
+        if self._state == "NAV_TO_CURSOR":
+            if not self._cursor_pose:
+                self._set_state("RETURN_TO_NEST", "cursor pose missing")
+                return
+            if self._state_elapsed() < 0.1:
+                self._publish_goal(self._cursor_pose, "cursor_pick")
+            result = self._nav_step(self._cursor_pose, self._timeout_nav)
+            if result is True:
+                self._set_state("HOOK_GRAB", "arrived cursor")
+                return
+            if result is False:
+                if self._nav_retry < 1:
+                    self._nav_retry += 1
+                    self._set_state("NAV_TO_CURSOR", "retry nav cursor")
+                else:
+                    self._set_state("RETURN_TO_NEST", "nav cursor failed")
+            return
+
+        if self._state == "HOOK_GRAB":
+            if self._state_elapsed() < self._cursor_grab_duration:
+                self._send_cmd_vel(self._cursor_grab_speed)
+                return
+            self._send_cmd_vel(0.0)
+            self._nav_retry = 0
+            self._set_state("NAV_CURSOR_TO_TARGET", "hook grab complete")
+            return
+
+        if self._state == "NAV_CURSOR_TO_TARGET":
+            if not self._cursor_goal_pose:
+                self._set_state("RETURN_TO_NEST", "cursor_goal missing")
+                return
+            if self._state_elapsed() < 0.1:
+                self._publish_goal(self._cursor_goal_pose, "cursor_goal")
+            result = self._nav_step(self._cursor_goal_pose, self._timeout_nav)
+            if result is True:
+                self._set_state("HOOK_RELEASE", "cursor moved")
+                return
+            if result is False:
+                if self._nav_retry < 1:
+                    self._nav_retry += 1
+                    self._set_state("NAV_CURSOR_TO_TARGET", "retry nav cursor goal")
+                else:
+                    self._set_state("RETURN_TO_NEST", "nav cursor goal failed")
+            return
+
+        if self._state == "HOOK_RELEASE":
+            if self._state_elapsed() < self._cursor_release_duration:
+                self._send_cmd_vel(self._cursor_release_speed)
+                return
+            self._send_cmd_vel(0.0)
             elapsed = self._elapsed()
             if elapsed <= 30.0:
                 self._plan = ["pantry"]
@@ -418,6 +551,8 @@ class TaskManagerFSM(Node):
             return
 
         if self._state == "NAV_TO_PREGRASP":
+            if self._state_elapsed() < 0.1:
+                self._publish_goal(self._current_pregrasp, "pregrasp")
             result = self._nav_step(self._current_pregrasp, self._timeout_nav)
             if result is True:
                 self._set_state("ALIGN_TO_CRATE", "arrived pregrasp")
@@ -456,6 +591,8 @@ class TaskManagerFSM(Node):
             return
 
         if self._state == "NAV_TO_PLACE":
+            if self._state_elapsed() < 0.1:
+                self._publish_goal(self._current_place_pose, "place")
             result = self._nav_step(self._current_place_pose, self._timeout_nav)
             if result is True:
                 self._set_state("PLACE_RELEASE", "arrived pantry")
@@ -510,6 +647,8 @@ class TaskManagerFSM(Node):
 
         if self._state == "RETURN_TO_NEST":
             nest_pose = _make_pose_stamped(self._nest_x, self._nest_y, self._nest_yaw, self._global_frame)
+            if self._state_elapsed() < 0.1:
+                self._publish_goal(nest_pose, "return")
             result = self._nav_step(nest_pose, self._timeout_return)
             if result is True:
                 self._set_state("DONE", "returned to nest")
@@ -520,6 +659,10 @@ class TaskManagerFSM(Node):
     def _timeout_for_state(self) -> float:
         return {
             "MOVE_CURSOR": self._timeout_move_cursor,
+            "NAV_TO_CURSOR": self._timeout_nav,
+            "HOOK_GRAB": self._timeout_hook,
+            "NAV_CURSOR_TO_TARGET": self._timeout_nav,
+            "HOOK_RELEASE": self._timeout_hook,
             "SELECT_CRATE": self._timeout_select_crate,
             "NAV_TO_PREGRASP": self._timeout_nav,
             "ALIGN_TO_CRATE": self._timeout_align,
