@@ -1,0 +1,81 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+
+def generate_launch_description() -> LaunchDescription:
+    pkg_share = get_package_share_directory("mam_eurobot_2026")
+    path_planning_share = os.path.join(pkg_share, "path_planning")
+    task_manager_share = os.path.join(pkg_share, "task_manager")
+
+    nav2_params = os.path.join(path_planning_share, "nav2_params.yaml")
+    map_yaml = os.path.join(path_planning_share, "field.yaml")
+    pantry_yaml = os.path.join(task_manager_share, "pantry.yaml")
+
+    use_sim_time = LaunchConfiguration("use_sim_time")
+    nav2_params_arg = LaunchConfiguration("nav2_params")
+    map_yaml_arg = LaunchConfiguration("map_yaml")
+    pantry_yaml_arg = LaunchConfiguration("pantry_yaml")
+
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument("use_sim_time", default_value="true"),
+            DeclareLaunchArgument("nav2_params", default_value=nav2_params),
+            DeclareLaunchArgument("map_yaml", default_value=map_yaml),
+            DeclareLaunchArgument("pantry_yaml", default_value=pantry_yaml),
+            Node(
+                package="nav2_map_server",
+                executable="map_server",
+                name="map_server",
+                output="screen",
+                parameters=[{"yaml_filename": map_yaml_arg, "use_sim_time": use_sim_time}],
+            ),
+            Node(
+                package="nav2_planner",
+                executable="planner_server",
+                name="planner_server",
+                output="screen",
+                parameters=[nav2_params_arg, {"use_sim_time": use_sim_time}],
+            ),
+            Node(
+                package="nav2_lifecycle_manager",
+                executable="lifecycle_manager",
+                name="lifecycle_manager_path_planning",
+                output="screen",
+                parameters=[
+                    {
+                        "use_sim_time": use_sim_time,
+                        "autostart": True,
+                        "node_names": ["map_server", "planner_server"],
+                    }
+                ],
+            ),
+            Node(
+                package="mam_eurobot_2026",
+                executable="detected_crates_tf",
+                name="detected_crates_tf",
+                output="screen",
+                parameters=[{"target_frame": "map", "use_sim_time": use_sim_time}],
+            ),
+            Node(
+                package="mam_eurobot_2026",
+                executable="task_goal_path_planner_node",
+                name="task_goal_path_planner",
+                output="screen",
+                parameters=[{"use_sim_time": use_sim_time}],
+            ),
+            Node(
+                package="mam_eurobot_2026",
+                executable="task_manager_fsm",
+                name="task_manager_fsm",
+                output="screen",
+                parameters=[
+                    {"use_sim_time": use_sim_time, "pantry_yaml": pantry_yaml_arg},
+                ],
+            ),
+        ]
+    )
