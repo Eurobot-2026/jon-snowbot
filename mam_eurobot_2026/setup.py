@@ -1,3 +1,4 @@
+import os
 from glob import glob
 from setuptools import setup, find_packages
 
@@ -20,7 +21,28 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (f'share/{package_name}/urdf', glob('urdf/*')),
-        (f'share/{package_name}/path_planning', glob('mam_eurobot_2026/path_planning/*')),
+        (f'share/{package_name}/path_planning', (
+            glob('mam_eurobot_2026/path_planning/*.yaml')
+            + glob('mam_eurobot_2026/path_planning/*.rviz')
+            + glob('mam_eurobot_2026/path_planning/*.pgm')
+        )),
+        (f'share/{package_name}/task_manager', glob('mam_eurobot_2026/task_manager/*.yaml')),
+        (f'share/{package_name}/vision', glob('mam_eurobot_2026/vision/*.yaml')),
+        (f'share/{package_name}/launch', glob('launch/*')),
+        (f'share/{package_name}/worlds', glob('worlds/*')),
+        (f'share/{package_name}/models/arena3D', [
+            path for path in glob('models/arena3D/*') if os.path.isfile(path)
+        ]),
+        (f'share/{package_name}/models/arena3D/meshes', glob('models/arena3D/meshes/*')),
+        (f'share/{package_name}/models/aruco', glob('models/aruco/*')),
+        (f'share/{package_name}/models/crate_blue', glob('models/crate_blue/*')),
+        (f'share/{package_name}/models/crate_yellow', glob('models/crate_yellow/*')),
+        (f'share/{package_name}/models/cursor', [
+            path for path in glob('models/cursor/*') if os.path.isfile(path)
+        ]),
+        (f'share/{package_name}/models/cursor/meshes', glob('models/cursor/meshes/*')),
+        (f'share/{package_name}/models/mat', glob('models/mat/*')),
+        (f'share/{package_name}/models/simple_robot', glob('models/simple_robot/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
