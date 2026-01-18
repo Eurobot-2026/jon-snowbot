@@ -21,6 +21,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (f'share/{package_name}/urdf', glob('urdf/*')),
+        (f'share/{package_name}/localization', glob('mam_eurobot_2026/localization/*')),
         (f'share/{package_name}/path_planning', (
             glob('mam_eurobot_2026/path_planning/*.yaml')
             + glob('mam_eurobot_2026/path_planning/*.rviz')
@@ -61,6 +62,7 @@ setup(
             'staging_path_planner_node = mam_eurobot_2026.path_planning.staging_path_planner_node:main',
             'task_goal_path_planner_node = mam_eurobot_2026.path_planning.task_goal_path_planner_node:main',
             'dammy_TF = mam_eurobot_2026.path_planning.dammy_TF:main',
+            'true_tf_from_odom = mam_eurobot_2026.localization.true_tf_from_odom:main',
             'strategy_tree = mam_eurobot_2026.behavior_tree.strategy_tree:main',
             'task_manager_fsm = mam_eurobot_2026.task_manager.task_manager_fsm:main',
         ],
