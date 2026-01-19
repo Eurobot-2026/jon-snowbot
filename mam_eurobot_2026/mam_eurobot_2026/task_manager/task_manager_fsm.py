@@ -153,8 +153,8 @@ class TaskManagerFSM(Node):
         self._global_frame = self.declare_parameter("global_frame", "map").value
         self._base_frame = self.declare_parameter("base_frame", "base_link").value
         self._pantry_yaml = self.declare_parameter("pantry_yaml", "").value
-        self._nest_x = float(self.declare_parameter("nest_x", 0.0).value)
-        self._nest_y = float(self.declare_parameter("nest_y", 0.0).value)
+        self._nest_x = float(self.declare_parameter("nest_x", 0.8).value)
+        self._nest_y = float(self.declare_parameter("nest_y", 1.2).value)
         self._nest_yaw = float(self.declare_parameter("nest_yaw", 0.0).value)
         self._pregrasp_offset = float(self.declare_parameter("pregrasp_offset", 0.25).value)
 
@@ -239,7 +239,7 @@ class TaskManagerFSM(Node):
             self.get_logger().warn("pantry_yaml is empty; using default pantry poses.")
             return {
                 "pantry": {"x": 0.5, "y": 0.0, "yaw": 0.0},
-                "adjacent_pantry": {"x": 0.5, "y": 0.3, "yaw": 0.0},
+                "second_pantry": {"x": 0.5, "y": 0.3, "yaw": 0.0},
             }
         data = None
         try:
@@ -521,7 +521,7 @@ class TaskManagerFSM(Node):
                 self._plan = ["pantry"]
                 self._allow_second_pick = True
             elif elapsed <= 40.0:
-                self._plan = ["adjacent_pantry"]
+                self._plan = ["second_pantry"]
                 self._allow_second_pick = False
             else:
                 self._plan = []
@@ -622,7 +622,7 @@ class TaskManagerFSM(Node):
                 self._plan_index += 1
                 if self._allow_second_pick and self._plan_index >= len(self._plan):
                     if self._elapsed() <= 50.0:
-                        self._plan.append("adjacent_pantry")
+                        self._plan.append("second_pantry")
                     self._allow_second_pick = False
                 if self._plan_index < len(self._plan):
                     self._set_state("SELECT_CRATE", "next task")

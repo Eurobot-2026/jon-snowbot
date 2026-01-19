@@ -12,7 +12,7 @@ from vision_msgs.msg import Detection3D, Detection3DArray, ObjectHypothesisWithP
 
 # this node is for transformation of  /aruco/detections -> map frame
 # and pulish this crate position to /detected_crates
-# ASSUMING TRANSFORMATION   map -> base_link -> <camera_frame>
+# ASSUMING TRANSFORMATION   map -> base_link (localization) -> <camera_frame> (defined in URDF, static)
 class DetectedCratesTF(Node):
     def __init__(self) -> None:
         super().__init__("detected_crates_tf")
