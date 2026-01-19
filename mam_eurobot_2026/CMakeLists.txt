@@ -70,5 +70,6 @@ install(PROGRAMS ${PROJECT_NAME}/path_planning/gen_blank_map.py DESTINATION lib/
 install(PROGRAMS ${PROJECT_NAME}/path_planning/dammy_TF.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/path_planning/task_goal_path_planner_node.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/task_manager/task_manager_fsm.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/localization/true_tf_from_odom.py DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
