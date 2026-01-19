@@ -92,7 +92,7 @@ def generate_launch_description():
     )
     world_cfg = LaunchConfiguration('world')
     urdf_path = PathJoinSubstitution([pkg_share, 'urdf', 'simple_robot_camera.urdf'])
-    robot_description = ParameterValue(Command(['cat', urdf_path]), value_type=str)
+    robot_description = ParameterValue(Command(['cat ', urdf_path]), value_type=str)
 
     # ============ Ignition (Gazebo Sim) ============
     ign = ExecuteProcess(
