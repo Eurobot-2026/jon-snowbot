@@ -13,8 +13,6 @@ class GtPoseToMapTf(Node):
         self.declare_parameter("map_frame", "map")
         self.declare_parameter("base_frame", "base_link")
         self.declare_parameter("publish_rate_hz", 2.0)
-        self.declare_parameter("use_sim_time", False)
-
         self._pose_topic = self.get_parameter("pose_topic").get_parameter_value().string_value
         self._map_frame = self.get_parameter("map_frame").get_parameter_value().string_value
         self._base_frame = self.get_parameter("base_frame").get_parameter_value().string_value

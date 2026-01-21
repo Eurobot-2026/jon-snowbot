@@ -7,12 +7,14 @@ from rclpy.node import Node
 
 def _load_gz_node_class():
     candidates = (
-        "gz.transport15",
-        "gz.transport14",
-        "gz.transport13",
         "ignition.transport15",
         "ignition.transport14",
         "ignition.transport13",
+        "ignition.transport11",
+        "gz.transport14",
+        "gz.transport13",
+        "gz.transport12",
+        "gz.transport11",
     )
     for module_name in candidates:
         try:
@@ -25,19 +27,22 @@ def _load_gz_node_class():
 
 def _load_pose_msg_modules():
     candidates = (
-        "gz.msgs",
+        "ignition.msgs8",
         "ignition.msgs",
-        "gz.msgs12",
         "gz.msgs11",
         "gz.msgs10",
+        "gz.msgs12",
+        "gz.msgs8",
     )
     for module_name in candidates:
         try:
-            module = importlib.import_module(module_name)
-            return module.pose_v_pb2, module.pose_pb2
+            pose_v_pb2 = importlib.import_module(f"{module_name}.pose_v_pb2")
+            pose_pb2 = importlib.import_module(f"{module_name}.pose_pb2")
+            return pose_v_pb2, pose_pb2
         except (ImportError, AttributeError):
             continue
     raise ImportError("Gazebo message Python bindings are not available.")
+
 
 
 class PoseInfoFilterGz(Node):
@@ -47,8 +52,6 @@ class PoseInfoFilterGz(Node):
         self.declare_parameter("world_name", "eurobot_2026_arena")
         self.declare_parameter("target_model_name", "simple_robot")
         self.declare_parameter("out_topic", "/model/simple_robot/pose_gt")
-        self.declare_parameter("use_sim_time", False)
-
         world_name = self.get_parameter("world_name").get_parameter_value().string_value
         target_model_name = self.get_parameter("target_model_name").get_parameter_value().string_value
         out_topic = self.get_parameter("out_topic").get_parameter_value().string_value
@@ -60,6 +63,9 @@ class PoseInfoFilterGz(Node):
 
         gz_node_class = _load_gz_node_class()
         pose_v_pb2, pose_pb2 = _load_pose_msg_modules()
+        self.get_logger().info(f"Using pose_v_pb2 from: {pose_v_pb2.__name__}")
+        self.get_logger().info(f"Using pose_pb2 from: {pose_pb2.__name__}")
+
 
         self._gz_node = gz_node_class()
         self._pose_v_pb2 = pose_v_pb2
@@ -86,9 +92,9 @@ class PoseInfoFilterGz(Node):
                     return
 
         try:
-            self._gz_node.subscribe(in_topic, _on_pose_info, self._pose_v_pb2.Pose_V)
+            self._gz_node.subscribe(self._pose_v_pb2.Pose_V, in_topic, _on_pose_info)
         except TypeError:
-            self._gz_node.subscribe(in_topic, _on_pose_info)
+            self._gz_node.subscribe(in_topic, _on_pose_info, self._pose_v_pb2.Pose_V)
 
         self.get_logger().info(
             f"Filtering {in_topic} for model '{self._target_model_name}' -> {self._out_topic}"
