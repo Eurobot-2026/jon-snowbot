@@ -232,14 +232,14 @@ def generate_launch_description():
         world_arg,
         ign,
         spawn_after_ign,
-        # wheel_bridges,     # <—— added
         img_bridge,
-        mecanum_drive_bridge,
-        gripper_bridge,
-        cmd_vel_bridge,
         # top_img_bridge_1,
         # top_img_bridge_2,
         top_img_bridge_3,
         camera_bridge,
+        mecanum_drive_bridge,
+        gripper_bridge,
+        cmd_vel_bridge,
+        # wheel_bridges,     # <—— added
         rviz,
     ])
