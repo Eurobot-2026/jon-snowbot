@@ -9,10 +9,11 @@ class GtPoseToMapTf(Node):
     def __init__(self) -> None:
         super().__init__("gt_pose_to_map_tf")
 
-        self.declare_parameter("pose_topic", "/model/simple_robot/pose_gt")
+        self.declare_parameter("pose_topic", "/model/simple_robot/pose")
         self.declare_parameter("map_frame", "map")
         self.declare_parameter("base_frame", "base_link")
         self.declare_parameter("publish_rate_hz", 2.0)
+        # self.declare_parameter("use_sim_time", true)
         self._pose_topic = self.get_parameter("pose_topic").get_parameter_value().string_value
         self._map_frame = self.get_parameter("map_frame").get_parameter_value().string_value
         self._base_frame = self.get_parameter("base_frame").get_parameter_value().string_value
@@ -52,7 +53,7 @@ class GtPoseToMapTf(Node):
 
         if self._first_msg:
             self._first_msg = False
-            self.get_logger().info("Published first map -> base_link TF from ground truth pose.")
+            self.get_logger().info("Published first map -> base_link TF from pose topic.")
 
 
 def main() -> None:
