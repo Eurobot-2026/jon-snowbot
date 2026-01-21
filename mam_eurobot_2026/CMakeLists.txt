@@ -46,6 +46,9 @@ ament_python_install_package(${PROJECT_NAME})
 # Install Python executables
 install(PROGRAMS ${PROJECT_NAME}/py_test.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/vision/aruco_detector.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/vision/color_detector.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/vision/world_to_topcamera.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS ${PROJECT_NAME}/vision/estimate_cursor_position.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS ${PROJECT_NAME}/gripper/keyboard_gripper.py DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

@@ -1,0 +1,20 @@
+global:
+  horizontal_fov_deg: 60.0
+  image_width: 640
+  image_height: 480
+  aruco_dictionary: DICT_4X4_50
+
+cameras:
+  - name: observation_device
+    image_topic: /top_camera/image_3
+    marker_id: 21
+    marker_length_m: 0.10
+    # world -> marker (px, py, pz, roll, pitch, yaw) [m, rad]
+    world_marker_xyzrpy: [0.4, -0.9, 0.0, 0.0, 0.0, -1.5707]
+
+arucos:
+  # ArUco markers on crates (only these IDs are processed by aruco_detector).
+  - id: 36   # crate_blue
+    marker_length_m: 0.04
+  - id: 47   # crate_yellow
+    marker_length_m: 0.04
