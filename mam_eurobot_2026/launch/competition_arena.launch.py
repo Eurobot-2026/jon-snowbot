@@ -143,6 +143,16 @@ def generate_launch_description():
             '/world/eurobot_2026_arena/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock',
         ],
     )
+    pose_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='gz_pose_bridge',
+        output='screen',
+        arguments=[
+            '/world/eurobot_2026_arena/model/simple_robot/pose@geometry_msgs/msg/Pose@gz.msgs.Pose',
+        ],
+    )
+
 
     # ---------------- RViz ----------------
     rviz_env = {
@@ -169,7 +179,8 @@ def generate_launch_description():
         world_arg,
         ign,
         spawn_after_ign,
-        wheel_bridges,     # <—— added
+        wheel_bridges,
+        pose_bridge,
         img_bridge,
         camera_bridge,
         rviz,
