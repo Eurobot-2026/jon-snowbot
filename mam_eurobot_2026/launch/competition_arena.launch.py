@@ -31,6 +31,9 @@ def _spawn_model_cmd(file_uri: str, name: str, x: float, y: float, z: float, Y: 
 
 
 def generate_launch_description():
+
+    os.system("pkill -9 -f ign")
+    os.system("pkill -9 -f gz")
     # path sharing package
     pkg_share = FindPackageShare('mam_eurobot_2026')
     model_path = PathJoinSubstitution([pkg_share, 'models'])
@@ -132,7 +135,31 @@ def generate_launch_description():
         parameters=[{'qos': 'sensor_data'}],  # BESTEFFORT VOLATILE shallow depth
         output='screen',
     )
-    
+
+    # top_img_bridge_1 =  Node( 
+    #     package='ros_gz_image',
+    #     executable='image_bridge',
+    #     name='image_bridge_top_camera',
+    #     arguments=['/top_camera/image_1'], 
+    #     parameters=[{'qos': 'sensor_data'}],  # BESTEFFORT VOLATILE shallow depth
+    #     output='screen',
+    # )
+    # top_img_bridge_2 =  Node( 
+    #     package='ros_gz_image',
+    #     executable='image_bridge',
+    #     name='image_bridge_top_camera',
+    #     arguments=['/top_camera/image_2'], 
+    #     parameters=[{'qos': 'sensor_data'}],  # BESTEFFORT VOLATILE shallow depth
+    #     output='screen',
+    # )
+    top_img_bridge_3 =  Node( 
+        package='ros_gz_image',
+        executable='image_bridge',
+        name='image_bridge_top_camera',
+        arguments=['/top_camera/image_3'], 
+        parameters=[{'qos': 'sensor_data'}],  # BESTEFFORT VOLATILE shallow depth
+        output='screen',
+    )
     camera_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -185,6 +212,9 @@ def generate_launch_description():
         spawn_after_ign,
         cmd_vel_bridge,
         img_bridge, 
+        # top_img_bridge_1,
+        # top_img_bridge_2,
+        top_img_bridge_3,
         camera_bridge,
         rviz,
     ])
