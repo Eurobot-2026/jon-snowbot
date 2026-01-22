@@ -32,6 +32,7 @@ setup(
             'color_detector = mam_eurobot_2026.vision.color_detector:main',
             'world_to_topcamera = mam_eurobot_2026.vision.world_to_topcamera:main' ,
             'estimate_cursor_position = mam_eurobot_2026.vision.estimate_cursor_position:main' 
+            'gripper_keyboard = mam_eurobot_2026.gripper.keyboard_gripper:main',
         ],
     },
 )

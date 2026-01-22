@@ -1,0 +1,159 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="parallel_gripper" canonical_link="base_link">
+    <pose>0 0 0 0 0 0</pose>
+
+    <link name="base_link">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.0000333</ixx>
+          <iyy>0.0000667</iyy>
+          <izz>0.0000867</izz>
+          <ixy>0.0</ixy>
+          <iyz>0.0</iyz>
+          <ixz>0.0</ixz>
+        </inertia>
+      </inertial>
+      <visual name="base_visual">
+        <geometry>
+          <box>
+            <size>0.01 0.05 0.01</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.1 0.1 0.1 1</ambient>
+          <diffuse>0.2 0.2 0.2 1</diffuse>
+        </material>
+      </visual>
+      <!-- <collision name="base_collision">
+        <geometry>
+          <box>
+            <size>0.06 0.04 0.02</size>
+          </box>
+        </geometry>
+      </collision> -->
+    </link>
+
+    <link name="finger_left">
+      <pose>0.07 0.08 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>0.0000021</ixx>
+          <iyy>0.0000283</iyy>
+          <izz>0.0000271</izz>
+          <ixy>0.0</ixy>
+          <iyz>0.0</iyz>
+          <ixz>0.0</ixz>
+        </inertia>
+      </inertial>
+      <visual name="finger_left_visual">
+        <geometry>
+          <box>
+            <size>0.05 0.01 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.8 0.2 0.2 1</ambient>
+          <diffuse>0.9 0.3 0.3 1</diffuse>
+        </material>
+      </visual>
+      <collision name="finger_left_collision">
+        <geometry>
+          <box>
+            <size>0.05 0.01 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+    </link>
+
+    <link name="finger_right">
+      <pose>0.07 -0.08 0 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>0.0000021</ixx>
+          <iyy>0.0000283</iyy>
+          <izz>0.0000271</izz>
+          <ixy>0.0</ixy>
+          <iyz>0.0</iyz>
+          <ixz>0.0</ixz>
+        </inertia>
+      </inertial>
+      <visual name="finger_right_visual">
+        <geometry>
+          <box>
+            <size>0.05 0.01 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.8 0.2 0.2 1</ambient>
+          <diffuse>0.9 0.3 0.3 1</diffuse>
+        </material>
+      </visual>
+      <collision name="finger_right_collision">
+        <geometry>
+          <box>
+            <size>0.05 0.01 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="finger_left_joint" type="prismatic">
+      <parent>base_link</parent>
+      <child>finger_left</child>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-0.1</lower>
+          <upper>0.1</upper>
+          <effort>50</effort>
+          <velocity>0.2</velocity>
+        </limit>
+        <dynamics>
+          <damping>5</damping>
+          <friction>1</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <joint name="finger_right_joint" type="prismatic">
+      <parent>base_link</parent>
+      <child>finger_right</child>
+      <axis>
+        <xyz>0 -1 0</xyz>
+        <limit>
+          <lower>-0.1</lower>
+          <upper>0.1</upper>
+          <effort>50</effort>
+          <velocity>0.2</velocity>
+        </limit>
+        <dynamics>
+          <damping>5</damping>
+          <friction>1</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <plugin
+      filename="libignition-gazebo-joint-position-controller-system.so"
+      name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>finger_left_joint</joint_name>
+      <topic>/gripper/cmd_pos</topic>
+      <p_gain>80</p_gain>
+      <d_gain>2</d_gain>
+    </plugin>
+
+    <plugin
+      filename="libignition-gazebo-joint-position-controller-system.so"
+      name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>finger_right_joint</joint_name>
+      <topic>/gripper/cmd_pos</topic>
+      <p_gain>80</p_gain>
+      <d_gain>2</d_gain>
+    </plugin>
+  </model>
+</sdf>

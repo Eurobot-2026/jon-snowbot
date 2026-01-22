@@ -12,13 +12,12 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 import os
 
-MAC = False # for testing on Mac
-current_display = os.environ.get('DISPLAY', ':0')  # get current DISPLAY
+MAC = False
+current_display = os.environ.get('DISPLAY', ':0')
 print(f"Detected DISPLAY: {current_display}")
 
 
 def _spawn_model_cmd(file_uri: str, name: str, x: float, y: float, z: float, Y: float = None):
-    """Helper of generating command of ros_gz_sim create"""
     cmd = [
         "ros2", "run", "ros_gz_sim", "create",
         "-file", file_uri,
@@ -38,16 +37,15 @@ def generate_launch_description():
     pkg_share = FindPackageShare('mam_eurobot_2026')
     model_path = PathJoinSubstitution([pkg_share, 'models'])
 
-    # ============ Enviroinment Variable ============
+    # ---------------- Environment ----------------
     if MAC:
         env_actions = [
-            SetEnvironmentVariable('DISPLAY', ':1'),  # VNC / Xvfb
+            SetEnvironmentVariable('DISPLAY', ':1'),
             SetEnvironmentVariable('HOME', '/home/rosdev'),
             SetEnvironmentVariable('ROS_LOG_DIR', '/home/rosdev/.ros/log'),
             SetEnvironmentVariable('XDG_RUNTIME_DIR', '/tmp/runtime-rosdev'),
             SetEnvironmentVariable('LIBGL_ALWAYS_SOFTWARE', '1'),
             SetEnvironmentVariable('IGN_RENDER_ENGINE', 'ogre2'),
-            # make path of resource of Gazebo 
             SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', pkg_share),
             SetEnvironmentVariable('IGN_GAZEBO_RESOURCE_PATH', model_path),
             ExecuteProcess(
@@ -62,13 +60,12 @@ def generate_launch_description():
         ]
     else:
         env_actions = [
-            SetEnvironmentVariable('DISPLAY', current_display), # use current DISPLAY
+            SetEnvironmentVariable('DISPLAY', current_display),
             SetEnvironmentVariable('HOME', '/home/rosdev'),
             SetEnvironmentVariable('ROS_LOG_DIR', '/home/rosdev/.ros/log'),
             SetEnvironmentVariable('XDG_RUNTIME_DIR', '/tmp/runtime-rosdev'),
             SetEnvironmentVariable('LIBGL_ALWAYS_SOFTWARE', '1'),
             SetEnvironmentVariable('IGN_RENDER_ENGINE', 'ogre2'),
-            # make path of resource of Gazebo 
             SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', pkg_share),
             SetEnvironmentVariable('IGN_GAZEBO_RESOURCE_PATH', model_path),
             ExecuteProcess(
@@ -82,7 +79,7 @@ def generate_launch_description():
             ),
         ]
 
-    # ============ argument ============
+    # ---------------- World argument ----------------
     world_arg = DeclareLaunchArgument(
         'world',
         default_value=PathJoinSubstitution([pkg_share, 'worlds', 'competition_world.sdf']),
@@ -90,14 +87,13 @@ def generate_launch_description():
     )
     world_cfg = LaunchConfiguration('world')
 
-    # ============ Ignition (Gazebo Sim) ============
+    # ---------------- Start Gazebo ----------------
     ign = ExecuteProcess(
         cmd=["ign", "gazebo", world_cfg],
         output="screen",
     )
 
-    # ============ spawn after launching ignition============
-    # "model://models/<name>" is OK as it has GZ_SIM_RESOURCE_PATH
+    # ---------------- Spawn robot ----------------
     spawn_after_ign = RegisterEventHandler(
         OnProcessStart(
             target_action=ign,
@@ -114,7 +110,37 @@ def generate_launch_description():
         )
     )
 
-    # ============ bridge ============
+    # ---------------- Wheel velocity bridges ----------------
+    # wheel_bridges = Node(
+    #     package='ros_gz_bridge',
+    #     executable='parameter_bridge',
+    #     name='wheel_velocity_bridges',
+    #     output='screen',
+    #     arguments=[
+    #         '/omni/front_left_speed@std_msgs/msg/Float64@gz.msgs.Double',
+    #         '/omni/front_right_speed@std_msgs/msg/Float64@gz.msgs.Double',
+    #         '/omni/rear_left_speed@std_msgs/msg/Float64@gz.msgs.Double',
+    #         '/omni/rear_right_speed@std_msgs/msg/Float64@gz.msgs.Double',
+    #     ],
+    # )
+    mecanum_drive_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='mecanum_drive_bridge',
+        output='screen',
+        arguments=[
+            # Command Velocity: ROS 2 -> Gazebo
+            '/model/simple_robot/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
+            # Odometry Feedback: Gazebo -> ROS 2
+            '/model/simple_robot/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry',
+        ],
+        # Optional: Remap the ROS 2 topic to a more conventional name if needed
+        # remappings=[
+        #     ('/model/simple_robot/cmd_vel', '/cmd_vel'),
+        #     ('/model/simple_robot/odometry', '/odom'),
+        # ],
+    )
+    
     cmd_vel_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -122,17 +148,28 @@ def generate_launch_description():
         output='screen',
         arguments=['/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist'],
     )
-    img_bridge =  Node( 
+
+    gripper_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='gripper_bridge',
+        output='screen',
+        arguments=[
+            '/gripper/cmd_pos@std_msgs/msg/Float64@ignition.msgs.Double',
+        ],
+    )
+
+    # ---------------- Bridges: camera ----------------
+    img_bridge = Node(
         package='ros_gz_image',
         executable='image_bridge',
         name='image_bridge_front_camera',
-        # namespace='front_camera',     
-        arguments=['/front_camera'], 
+        arguments=['/front_camera'],
         remappings=[
             ('image', '/front_camera/image'),
             ('camera_info', '/front_camera/camera_info'),
         ],
-        parameters=[{'qos': 'sensor_data'}],  # BESTEFFORT VOLATILE shallow depth
+        parameters=[{'qos': 'sensor_data'}],
         output='screen',
     )
 
@@ -166,35 +203,21 @@ def generate_launch_description():
         name='gz_camera_bridge',
         output='screen',
         arguments=[
-            # '/front_camera/image@sensor_msgs/msg/Image@ignition.msgs.Image',
-            # '/front_camera/camera_info@sensor_msgs/msg/CameraInfo@ignition.msgs.CameraInfo',
             '/world/eurobot_2026_arena/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock',
         ],
     )
 
-    # ============ RViz ============
-    if MAC:
-        rviz_env = {
-            'DISPLAY': ':1',
-            'LIBGL_ALWAYS_SOFTWARE': '1',
-            'LD_LIBRARY_PATH': '/opt/ros/humble/opt/rviz_ogre_vendor/lib:' + os.environ.get('LD_LIBRARY_PATH', ''),
-            'HOME': '/home/rosdev',
-            'ROS_LOG_DIR': '/home/rosdev/.ros/log',
-            'XDG_RUNTIME_DIR': '/tmp/runtime-rosdev',
-            'RCUTILS_LOGGING_USE_STDOUT': '1',
-            'AMENT_PREFIX_PATH': os.environ.get('AMENT_PREFIX_PATH', ''),
-        }
-    else:
-        rviz_env = {
-            'DISPLAY': current_display,  # use current DISPLAY
-            'LIBGL_ALWAYS_SOFTWARE': '1',
-            'LD_LIBRARY_PATH': '/opt/ros/humble/opt/rviz_ogre_vendor/lib:' + os.environ.get('LD_LIBRARY_PATH', ''),
-            'HOME': '/home/rosdev',
-            'ROS_LOG_DIR': '/home/rosdev/.ros/log',
-            'XDG_RUNTIME_DIR': '/tmp/runtime-rosdev',
-            'RCUTILS_LOGGING_USE_STDOUT': '1',
-            'AMENT_PREFIX_PATH': os.environ.get('AMENT_PREFIX_PATH', ''),
-        }
+    # ---------------- RViz ----------------
+    rviz_env = {
+        'DISPLAY': current_display if not MAC else ':1',
+        'LIBGL_ALWAYS_SOFTWARE': '1',
+        'LD_LIBRARY_PATH': '/opt/ros/humble/opt/rviz_ogre_vendor/lib:' + os.environ.get('LD_LIBRARY_PATH', ''),
+        'HOME': '/home/rosdev',
+        'ROS_LOG_DIR': '/home/rosdev/.ros/log',
+        'XDG_RUNTIME_DIR': '/tmp/runtime-rosdev',
+        'RCUTILS_LOGGING_USE_STDOUT': '1',
+        'AMENT_PREFIX_PATH': os.environ.get('AMENT_PREFIX_PATH', ''),
+    }
 
     rviz = Node(
         package='rviz2',
@@ -202,7 +225,6 @@ def generate_launch_description():
         name='rviz2',
         output='screen',
         env=rviz_env,
-        # parameters=[{'use_sim_time': True}],  # delete comment if not necessary
     )
 
     return LaunchDescription([
@@ -210,11 +232,14 @@ def generate_launch_description():
         world_arg,
         ign,
         spawn_after_ign,
-        cmd_vel_bridge,
-        img_bridge, 
+        img_bridge,
         # top_img_bridge_1,
         # top_img_bridge_2,
         top_img_bridge_3,
         camera_bridge,
+        mecanum_drive_bridge,
+        gripper_bridge,
+        cmd_vel_bridge,
+        # wheel_bridges,     # <—— added
         rviz,
     ])
