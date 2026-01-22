@@ -12,8 +12,9 @@ from geometry_msgs.msg import PointStamped, PoseStamped, Quaternion, Twist
 from action_msgs.msg import GoalStatus
 from nav2_msgs.action import NavigateToPose
 from rclpy.duration import Duration
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Bool, String
+from std_msgs.msg import Bool, String, Float64
 from vision_msgs.msg import Detection3DArray
 import tf2_ros
 
@@ -103,20 +104,28 @@ class Nav2Adapter:
 class GripperAdapter:
     def __init__(self, node: Node):
         self._node = node
-        self._warned = False
+        self._command_topic = self._node.declare_parameter(
+            "gripper_command_topic",
+            "/gripper/cmd_pos",
+        ).value
+        self._open_position = float(
+            self._node.declare_parameter("gripper_open_position", 0.0).value
+        )
+        self._closed_position = float(
+            self._node.declare_parameter("gripper_closed_position", -0.05).value
+        )
+        self._publisher = self._node.create_publisher(Float64, self._command_topic, 10)
 
     def open_gripper(self) -> bool:
-        # TODO: Replace with actual gripper API integration.
-        if not self._warned:
-            self._node.get_logger().warn("Gripper adapter is a stub; replace with real API.")
-            self._warned = True
+        msg = Float64()
+        msg.data = float(self._open_position)
+        self._publisher.publish(msg)
         return True
 
     def close_gripper(self) -> bool:
-        # TODO: Replace with actual gripper API integration.
-        if not self._warned:
-            self._node.get_logger().warn("Gripper adapter is a stub; replace with real API.")
-            self._warned = True
+        msg = Float64()
+        msg.data = float(self._closed_position)
+        self._publisher.publish(msg)
         return True
 
 class DetectedCratesAdapter:
@@ -224,7 +233,8 @@ class TaskManagerFSM(Node):
 
         self.create_subscription(JointState, "/joint_states", self._on_joint_states, 10)
         self.create_subscription(Bool, "/gripper_has_object", self._on_has_object, 10)
-        self.create_subscription(PointStamped, self._cursor_topic, self._on_cursor_point, 10)
+        cursor_qos = QoSProfile(depth=5, reliability=ReliabilityPolicy.BEST_EFFORT)
+        self.create_subscription(PointStamped, self._cursor_topic, self._on_cursor_point, cursor_qos)
         self.create_subscription(
             self._crates_adapter.MSG_TYPE,
             "/detected_crates",

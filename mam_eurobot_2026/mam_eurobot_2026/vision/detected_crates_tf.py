@@ -5,6 +5,8 @@ from typing import Optional
 import rclpy
 from rclpy.duration import Duration
 from rclpy.node import Node
+from rclpy.time import Time
+import tf2_geometry_msgs  # noqa: F401
 import tf2_ros
 
 from geometry_msgs.msg import Pose, PoseStamped
@@ -33,10 +35,13 @@ class DetectedCratesTF(Node):
         )
 
     def _transform_pose(self, pose: Pose, header) -> Optional[Pose]:
-        if not header.frame_id:
+        source_frame = "front_camera"
+        if not source_frame:
             return None
         pose_stamped = PoseStamped()
         pose_stamped.header = header
+        pose_stamped.header.frame_id = source_frame
+        pose_stamped.header.stamp = Time().to_msg()
         pose_stamped.pose = pose
         try:
             out = self._tf_buffer.transform(

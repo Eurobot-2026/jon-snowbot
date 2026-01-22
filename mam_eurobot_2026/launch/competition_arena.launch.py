@@ -209,6 +209,9 @@ def generate_launch_description():
         arguments=[
             '/world/eurobot_2026_arena/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock',
         ],
+        remappings=[
+            ('/world/eurobot_2026_arena/clock', '/clock'),
+        ],
     )
     robot_state_publisher = Node(
         package='robot_state_publisher',

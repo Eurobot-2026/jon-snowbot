@@ -12,8 +12,8 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("map_frame", default_value="map"),
             DeclareLaunchArgument("base_frame", default_value="base_link"),
             DeclareLaunchArgument("publish_rate_hz", default_value="2.0"),
-            # DeclareLaunchArgument("use_sim_time", default_value="true"),
-            DeclareLaunchArgument("use_sim_time", default_value="false"),
+            DeclareLaunchArgument("use_sim_time", default_value="true"),
+            # DeclareLaunchArgument("use_sim_time", default_value="false"),
             Node(
                 package="ros_gz_bridge",
                 executable="parameter_bridge",
