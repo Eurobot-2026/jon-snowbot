@@ -78,7 +78,7 @@ class PathFollowClient(Node):
         goal.path = self._pending_path
         goal.controller_id = self._controller_id
         goal.goal_checker_id = self._goal_checker_id
-        goal.progress_checker_id = self._progress_checker_id
+        # goal.progress_checker_id = self._progress_checker_id
 
         self._pending_path = None
         self._goal_in_flight = True
