@@ -42,6 +42,13 @@ def generate_launch_description() -> LaunchDescription:
                 parameters=[nav2_params_arg, {"use_sim_time": use_sim_time}],
             ),
             Node(
+                package="nav2_controller",
+                executable="controller_server",
+                name="controller_server",
+                output="screen",
+                parameters=[nav2_params_arg, {"use_sim_time": use_sim_time}],
+            ),
+            Node(
                 package="nav2_lifecycle_manager",
                 executable="lifecycle_manager",
                 name="lifecycle_manager_path_planning",
@@ -50,7 +57,7 @@ def generate_launch_description() -> LaunchDescription:
                     {
                         "use_sim_time": use_sim_time,
                         "autostart": True,
-                        "node_names": ["map_server", "planner_server"],
+                        "node_names": ["map_server", "planner_server", "controller_server"],
                     }
                 ],
             ),
@@ -65,6 +72,13 @@ def generate_launch_description() -> LaunchDescription:
                 package="mam_eurobot_2026",
                 executable="task_goal_path_planner_node",
                 name="task_goal_path_planner",
+                output="screen",
+                parameters=[{"use_sim_time": use_sim_time}],
+            ),
+            Node(
+                package="mam_eurobot_2026",
+                executable="path_follow_client",
+                name="path_follow_client",
                 output="screen",
                 parameters=[{"use_sim_time": use_sim_time}],
             ),

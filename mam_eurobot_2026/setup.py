@@ -41,6 +41,7 @@ setup(
             path for path in glob('models/cursor/*') if os.path.isfile(path)
         ]),
         (f'share/{package_name}/models/cursor/meshes', glob('models/cursor/meshes/*')),
+        (f'share/{package_name}/models/gripper', glob('models/gripper/*')),
         (f'share/{package_name}/models/mat', glob('models/mat/*')),
         (f'share/{package_name}/models/simple_robot', glob('models/simple_robot/*')),
     ],
@@ -67,6 +68,7 @@ setup(
             'strategy_tree = mam_eurobot_2026.behavior_tree.strategy_tree:main',
             'task_manager_fsm = mam_eurobot_2026.task_manager.task_manager_fsm:main',
             'gripper_keyboard = mam_eurobot_2026.gripper.keyboard_gripper:main',
+            'path_follow_client = mam_eurobot_2026.movement.path_follow_client:main',
         ],
     },
 )
