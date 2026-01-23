@@ -28,6 +28,13 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("map_yaml", default_value=map_yaml),
             DeclareLaunchArgument("pantry_yaml", default_value=pantry_yaml),
             Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="map_to_world_static_tf",
+                output="screen",
+                arguments=["0", "0", "0", "0", "0", "0", "map", "world"],
+            ),
+            Node(
                 package="nav2_map_server",
                 executable="map_server",
                 name="map_server",
