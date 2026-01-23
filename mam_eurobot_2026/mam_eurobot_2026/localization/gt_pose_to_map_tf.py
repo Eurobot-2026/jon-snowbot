@@ -4,6 +4,8 @@ from geometry_msgs.msg import Pose, TransformStamped
 from rclpy.node import Node
 from tf2_ros import TransformBroadcaster
 
+# Keep only the latest Pose; if multiple messages arrive per cycle,
+# the last one wins and earlier ones are overwritten before TF publish.
 
 class GtPoseToMapTf(Node):
     def __init__(self) -> None:

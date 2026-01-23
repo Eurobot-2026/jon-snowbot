@@ -69,6 +69,7 @@ setup(
             'task_manager_fsm = mam_eurobot_2026.task_manager.task_manager_fsm:main',
             'gripper_keyboard = mam_eurobot_2026.gripper.keyboard_gripper:main',
             'path_follow_client = mam_eurobot_2026.movement.path_follow_client:main',
+            'fixed_goal_path_planner_node = mam_eurobot_2026.path_planning.fixed_goal_path_planner_node:main',
         ],
     },
 )
