@@ -62,3 +62,5 @@ Reference for the ROS 2 nodes in `mam_eurobot_2026/vision`: what each one does, 
   ```bash
   python3 src/mam_eurobot_2026/mam_eurobot_2026/vision/show_front_camera.py
   ```
+## ISSUE
+Aruco detector is not stable and does not detect all arucos. It might be a problem of camera. Recommend camera parameters fixed.
