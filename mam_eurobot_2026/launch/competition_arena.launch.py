@@ -5,10 +5,12 @@ from launch.actions import (
     ExecuteProcess,
     SetEnvironmentVariable,
     RegisterEventHandler,
+    LogInfo,
 )
 from launch.event_handlers import OnProcessStart
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 import os
 
@@ -86,6 +88,8 @@ def generate_launch_description():
         description='SDF world file'
     )
     world_cfg = LaunchConfiguration('world')
+    urdf_path = PathJoinSubstitution([pkg_share, 'urdf', 'simple_robot_camera.urdf'])
+    robot_description = ParameterValue(Command(['cat ', urdf_path]), value_type=str)
 
     # ---------------- Start Gazebo ----------------
     ign = ExecuteProcess(
@@ -205,6 +209,16 @@ def generate_launch_description():
         arguments=[
             '/world/eurobot_2026_arena/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock',
         ],
+        remappings=[
+            ('/world/eurobot_2026_arena/clock', '/clock'),
+        ],
+    )
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        parameters=[{'robot_description': robot_description}],
+        output='screen',
     )
 
     # ---------------- RViz ----------------
@@ -228,6 +242,8 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        LogInfo(msg=['pkg_share: ', pkg_share]),
+        LogInfo(msg=['model_path: ', model_path]),
         *env_actions,
         world_arg,
         ign,
@@ -241,5 +257,6 @@ def generate_launch_description():
         gripper_bridge,
         cmd_vel_bridge,
         # wheel_bridges,     # <—— added
+        robot_state_publisher,
         rviz,
     ])

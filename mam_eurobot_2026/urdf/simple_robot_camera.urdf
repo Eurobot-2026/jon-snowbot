@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<robot name="simple_robot_tf">
+  <link name="base_link"/>
+
+  <link name="front_camera"/>
+  <joint name="base_to_front_camera" type="fixed">
+    <parent link="base_link"/>
+    <child link="front_camera"/>
+    <origin xyz="0.12 0 0.20" rpy="0 0.3 0"/>
+  </joint>
+
+  <link name="front_camera_optical_frame"/>
+  <joint name="front_camera_to_optical" type="fixed">
+    <parent link="front_camera"/>
+    <child link="front_camera_optical_frame"/>
+    <origin xyz="0 0 0" rpy="-1.57079632679 0 -1.57079632679"/>
+  </joint>
+</robot>
