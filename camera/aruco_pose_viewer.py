@@ -245,13 +245,8 @@ def main():
                     f"X: {position[0]:.3f}m Y: {position[1]:.3f}m Z: {position[2]:.3f}m",
                     f"Yaw Z: {yaw_z:.1f}deg",
                 ]
-                print(
-                    f"frame={frame_count} id={int(marker_id)} "
-                    f"x={position[0]:.3f} y={position[1]:.3f} "
-                    f"z={position[2]:.3f} yaw_z={yaw_z:.1f}"
-                )
                 if int(marker_id) == 1:
-                    print("FLAG: ArUco marker ID 1 detected")
+                    print("ArUco marker ID 1 detected")
                 y_offset = marker_center[1] - 35
                 for index, text in enumerate(text_lines):
                     cv2.putText(
