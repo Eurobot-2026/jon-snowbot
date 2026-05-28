@@ -103,7 +103,10 @@ def detect_markers(
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     else:
         gray = image
-    return aruco.detectMarkers(gray, dictionary, parameters=parameters)
+    if hasattr(aruco, "detectMarkers"):
+        return aruco.detectMarkers(gray, dictionary, parameters=parameters)
+    detector = aruco.ArucoDetector(dictionary, parameters)
+    return detector.detectMarkers(gray)
 
 
 def estimate_marker_pose(

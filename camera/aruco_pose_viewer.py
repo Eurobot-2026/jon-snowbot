@@ -46,7 +46,10 @@ def create_detector_parameters():
 
 
 def detect_markers(gray, dictionary, parameters):
-    return aruco.detectMarkers(gray, dictionary, parameters=parameters)
+    if hasattr(aruco, "detectMarkers"):
+        return aruco.detectMarkers(gray, dictionary, parameters=parameters)
+    detector = aruco.ArucoDetector(dictionary, parameters)
+    return detector.detectMarkers(gray)
 
 
 def estimate_marker_pose(corners, marker_length, camera_matrix, dist_coeffs):
