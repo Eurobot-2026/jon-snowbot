@@ -89,7 +89,9 @@ def get_aruco_dictionary(name: str):
 
 
 def create_detector_parameters():
-    return aruco.DetectorParameters_create()
+    if hasattr(aruco, "DetectorParameters_create"):
+        return aruco.DetectorParameters_create()
+    return aruco.DetectorParameters()
 
 
 def detect_markers(
