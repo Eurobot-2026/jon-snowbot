@@ -51,7 +51,9 @@ def create_aruco_dictionary(dictionary_id):
 
 def create_detector_parameters():
     # DetectorParameters stores thresholds and tuning values used by the ArUco detector.
-    return aruco.DetectorParameters_create()
+    if hasattr(aruco, "DetectorParameters_create"):
+        return aruco.DetectorParameters_create()
+    return aruco.DetectorParameters()
 
 
 def detect_markers(gray, dictionary, parameters):
