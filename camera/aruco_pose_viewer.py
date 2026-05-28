@@ -25,6 +25,20 @@ def parse_args():
     parser.add_argument("--fps", type=int, default=15)
     parser.add_argument("--marker-length", type=float, default=None)
     parser.add_argument("--calibration", default=DEFAULT_CALIBRATION_FILE)
+    parser.add_argument("--warmup-frames", type=int, default=10)
+    parser.add_argument("--max-read-failures", type=int, default=5)
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Do not open an OpenCV display window.",
+    )
+    parser.add_argument(
+        "--snapshot-every",
+        type=int,
+        default=0,
+        help="In headless mode, save an annotated frame every N frames. 0 disables snapshots.",
+    )
+    parser.add_argument("--snapshot-path", default="/tmp/aruco_pose_viewer.jpg")
     parser.add_argument(
         "--no-mjpg",
         action="store_true",
@@ -133,6 +147,7 @@ def open_camera(args):
 
     if not args.no_mjpg:
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.height)
     cap.set(cv2.CAP_PROP_FPS, args.fps)
@@ -142,6 +157,14 @@ def open_camera(args):
     actual_fps = cap.get(cv2.CAP_PROP_FPS)
     print(f"Camera mode: {actual_width:.0f}x{actual_height:.0f} @ {actual_fps:.1f} fps")
     return cap
+
+
+def read_frame(cap, max_failures):
+    for _ in range(max(1, max_failures)):
+        ret, frame = cap.read()
+        if ret:
+            return True, frame
+    return False, None
 
 
 def main():
@@ -155,13 +178,17 @@ def main():
     aruco_dict = create_aruco_dictionary(dictionary_id)
     parameters = create_detector_parameters()
     cap = open_camera(args)
+    for _ in range(max(0, args.warmup_frames)):
+        cap.grab()
 
+    frame_count = 0
     while True:
-        ret, frame = cap.read()
+        ret, frame = read_frame(cap, args.max_read_failures)
         if not ret:
-            print("Error: Failed to grab frame")
+            print("Error: Failed to grab frame after retries")
             break
 
+        frame_count += 1
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         marker_corners, marker_ids, _ = detect_markers(gray, aruco_dict, parameters)
 
@@ -195,6 +222,13 @@ def main():
                     f"X: {position[0]:.3f}m Y: {position[1]:.3f}m Z: {position[2]:.3f}m",
                     f"Yaw Z: {yaw_z:.1f}deg",
                 ]
+                print(
+                    f"frame={frame_count} id={int(marker_id)} "
+                    f"x={position[0]:.3f} y={position[1]:.3f} "
+                    f"z={position[2]:.3f} yaw_z={yaw_z:.1f}"
+                )
+                if int(marker_id) == 1:
+                    print("FLAG: ArUco marker ID 1 detected")
                 y_offset = marker_center[1] - 35
                 for index, text in enumerate(text_lines):
                     cv2.putText(
@@ -217,12 +251,18 @@ def main():
                 2,
             )
 
-        cv2.imshow("ArUco Pose Viewer", frame)
-        if cv2.waitKey(1) & 0xFF == 27:
-            break
+        if args.headless:
+            if args.snapshot_every > 0 and frame_count % args.snapshot_every == 0:
+                cv2.imwrite(args.snapshot_path, frame)
+                print(f"Wrote snapshot to {args.snapshot_path}")
+        else:
+            cv2.imshow("ArUco Pose Viewer", frame)
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
 
     cap.release()
-    cv2.destroyAllWindows()
+    if not args.headless:
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
