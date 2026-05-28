@@ -115,15 +115,38 @@ def estimate_marker_pose(
     camera_matrix: np.ndarray,
     dist_coeffs: np.ndarray,
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
-    rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(
-        np.array([corners], dtype=np.float32),
-        float(marker_length),
+    if hasattr(aruco, "estimatePoseSingleMarkers"):
+        rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(
+            np.array([corners], dtype=np.float32),
+            float(marker_length),
+            camera_matrix,
+            dist_coeffs,
+        )
+        if rvecs is None or tvecs is None or len(rvecs) == 0:
+            return None, None
+        return rvecs[0].reshape(3), tvecs[0].reshape(3)
+
+    half = float(marker_length) / 2.0
+    object_points = np.array(
+        [
+            [-half, half, 0.0],
+            [half, half, 0.0],
+            [half, -half, 0.0],
+            [-half, -half, 0.0],
+        ],
+        dtype=np.float32,
+    )
+    solve_flag = getattr(cv2, "SOLVEPNP_IPPE_SQUARE", cv2.SOLVEPNP_ITERATIVE)
+    success, rvec, tvec = cv2.solvePnP(
+        object_points,
+        np.asarray(corners, dtype=np.float32),
         camera_matrix,
         dist_coeffs,
+        flags=solve_flag,
     )
-    if rvecs is None or tvecs is None or len(rvecs) == 0:
+    if not success:
         return None, None
-    return rvecs[0].reshape(3), tvecs[0].reshape(3)
+    return rvec.reshape(3), tvec.reshape(3)
 
 
 def rotation_matrix_to_quaternion(rotation: np.ndarray) -> np.ndarray:
